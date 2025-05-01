@@ -36,6 +36,8 @@ public:
     size_t getTotalSize() const;
     void generateELF(uint8_t* data);
 
+    // E#136375: revisit name of the method and try to avoid need to call it
+    // separately from generateELF
     void setSectionsStartAddr(uint8_t* elfBinary);
 
     writer::RelocationSection* addRelocationSection(const std::string& name = {});

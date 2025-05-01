@@ -24,7 +24,7 @@ public:
 private:
     static constexpr uint32_t VERSION_MAJOR = 1;
     static constexpr uint32_t VERSION_MINOR = 3;
-    static constexpr uint32_t VERSION_PATCH = 3;
+    static constexpr uint32_t VERSION_PATCH = 4;
 };
 
 }  // namespace elf
