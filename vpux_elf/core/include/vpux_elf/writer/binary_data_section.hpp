@@ -25,6 +25,7 @@ public:
     size_t appendData(const T* obj, size_t sizeInElements) {
         writeRawBytesToElfStorageVector(reinterpret_cast<const uint8_t*>(obj), sizeInElements * sizeof(T));
         // return value is meaningless with memory consumption optimization
+        // E#136375
         return 0;
     }
 

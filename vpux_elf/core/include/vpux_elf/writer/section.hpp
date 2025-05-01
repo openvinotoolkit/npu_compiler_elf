@@ -52,6 +52,8 @@ public:
     // if section has multiple entries inside allocated
     // separately, it may require multiple writes to its
     // part of the blob
+    // E#136375 - revisit need to call shift every time manually
+    // after serialization an object inside section
     uint8_t* getCurrentWriteAddr() const;
     void shiftCurrentWriteAddr(size_t shiftInBytes);
 

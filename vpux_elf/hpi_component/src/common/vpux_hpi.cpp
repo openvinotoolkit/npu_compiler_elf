@@ -207,7 +207,7 @@ void HostParsedInference::load() {
 
         entriesVct.reserve(loaders.size());
         auto entrySize = entries->getBufferSpecs().size / archSpecificHpi->getArchTilesCount();
-        for (uint8_t idx = 0; idx < archSpecificHpi->getArchTilesCount(); ++idx) {
+        for (uint32_t idx = 0; idx < archSpecificHpi->getArchTilesCount(); ++idx) {
             const auto symbolTable = archSpecificHpi->getSymbolTable(idx);
             if (idx == 0) {
                 // first loader is created.

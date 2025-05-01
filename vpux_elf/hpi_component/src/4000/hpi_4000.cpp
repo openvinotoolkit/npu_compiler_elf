@@ -44,7 +44,8 @@ namespace {
 
 constexpr uint32_t VPUX40XX_VERSION_MAJOR = 1;
 constexpr uint32_t VPUX40XX_VERSION_MINOR = 2;
-constexpr uint32_t VPUX40XX_VERSION_PATCH = 4;
+constexpr uint32_t VPUX40XX_VERSION_PATCH = 5;
+
 
 
 } // namespace

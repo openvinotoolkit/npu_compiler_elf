@@ -403,8 +403,20 @@ const auto VPU_HIGH_27_BIT_OR_Relocation = [](void* targetAddr, const elf::Symbo
 
     auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) &
                               ~0xE0'0000;
-    auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4);
-    *addr |= (static_cast<uint64_t>(patchAddr) << 37);
+    auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4);  // only [30:4]
+    *addr |= (static_cast<uint64_t>(patchAddr) << 37);                // set [64:37]
+};
+
+const auto VPU_LO_21_BIT_RSHIFT_2_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
+                                                  const Elf_Sxword addend) -> void {
+    auto addr = reinterpret_cast<uint32_t*>(targetAddr);
+    auto symVal = targetSym.st_value;
+    VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\tLow 21 bits, rshift 2 reloc, addr %p symVal 0x%llx addend %llu", addr,
+                 symVal, addend);
+
+    auto patchAddr = (static_cast<uint32_t>(symVal + addend) & LO_21_BIT_MASK) >> 2;
+    *addr &= ~LO_21_BIT_MASK;
+    *addr |= patchAddr;
 };
 
 }  // namespace
@@ -458,6 +470,7 @@ const std::map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoade
         {R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16, VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16, VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation},
         {R_VPU_HIGH_27_BIT_OR, VPU_HIGH_27_BIT_OR_Relocation},
+        {R_VPU_LO_21_RSHIFT_2, VPU_LO_21_BIT_RSHIFT_2_Relocation},
 };
 
 VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
@@ -682,7 +695,10 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             auto sectionSize = sectionHeader->sh_size;
             auto sectionAlignment = sectionHeader->sh_addralign;
 
-            VPUX_ELF_THROW_WHEN((sectionFlags & SHF_WRITE) == 0, SectionError, "Allocatable section is read-only");
+            if ((sectionFlags & SHF_WRITE) == 0) {
+                // some "old" (e.g. PV) blobs may contain NOBITS sections with no SHF_WRITE flag
+                VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Allocating \"%s\" with no SHF_WRITE", section.getName());
+            }
 
             if (!m_inferencesMayBeRunInParallel) {
                 sectionFlags |= elf::SHARABLE_BUFFER_ENABLED;
