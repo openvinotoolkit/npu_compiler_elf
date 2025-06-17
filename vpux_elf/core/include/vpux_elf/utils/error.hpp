@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -38,6 +38,7 @@ VPUX_ELF_DEFINE_EXCEPTION(RuntimeError, HeaderError);
 VPUX_ELF_DEFINE_EXCEPTION(RuntimeError, SectionError);
 VPUX_ELF_DEFINE_EXCEPTION(RuntimeError, RelocError);
 VPUX_ELF_DEFINE_EXCEPTION(RuntimeError, AllocError);
+VPUX_ELF_DEFINE_EXCEPTION(RuntimeError, CompatibilityError);
 
 VPUX_ELF_DEFINE_EXCEPTION(LogicError, RangeError);
 VPUX_ELF_DEFINE_EXCEPTION(LogicError, SequenceError);

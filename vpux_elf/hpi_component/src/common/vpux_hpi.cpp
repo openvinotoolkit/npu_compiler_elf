@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -136,7 +136,7 @@ size_t HostParsedInference::getHPISize() const {
     return getArchSpecificHPI(hpiCfg.archKind)->getParsedInferenceBufferSpecs().size;
 }
 
-HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr, elf::HPIConfigs hpiConfigs)
+HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr, elf::HPIConfigs hpiConfigs, DeviceDescriptor* deviceDescriptor)
         : bufferManager(bufferMgr), accessManager(accessMgr), hpiCfg(hpiConfigs) {
     // create the loader object to cache sections
     loaders.emplace_back(std::make_unique<VPUXLoader>(accessMgr, bufferMgr));
@@ -157,7 +157,7 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
         std::stringstream logBuffer;
         logBuffer << "Incorrect arch. Expected: " << elf::platform::stringifyArchKind(expectedArch)
                   << " vs Received: " << elf::platform::stringifyArchKind(archKind);
-        VPUX_ELF_THROW(ArgsError, logBuffer.str().c_str());
+        VPUX_ELF_THROW(CompatibilityError, logBuffer.str().c_str());
     }
 
     // Check Mapped Inference Compatibility
@@ -175,12 +175,18 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
     auto tileCount = metadata->mResourceRequirements.nn_slice_count_;
     // get hardware tile count, archKind has already been checked above
     uint8_t hardwareTileCount = elf::platform::getHardwareTileCount(archKind);
+
+    if (deviceDescriptor != nullptr) {
+        VPUX_ELF_THROW_WHEN(deviceDescriptor->size < sizeof(DeviceDescriptor), ArgsError, "DeviceDescriptor is passed, but its size is too small");
+        hardwareTileCount = static_cast<uint8_t>(deviceDescriptor->tileCount);
+    }
+
     // throw exception if tile count is greater than hardware tile count
     if (tileCount > hardwareTileCount) {
         std::stringstream tileCountLogBuffer;
         tileCountLogBuffer << "Incorrect tile count. Requested tile count '" << static_cast<int>(tileCount)
                            << "' exceeds hardware tile count '" << static_cast<int>(hardwareTileCount) << "'";
-        VPUX_ELF_THROW(ArgsError, tileCountLogBuffer.str().c_str());
+        VPUX_ELF_THROW(CompatibilityError, tileCountLogBuffer.str().c_str());
     }
 
     if (tileCount > hardwareTileCount / 2

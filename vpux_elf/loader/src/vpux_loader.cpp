@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -481,7 +481,8 @@ VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
           m_userInputsDescriptors(std::make_shared<std::vector<DeviceBuffer>>()),
           m_userOutputsDescriptors(std::make_shared<std::vector<DeviceBuffer>>()),
           m_profOutputsDescriptors(std::make_shared<std::vector<DeviceBuffer>>()),
-          m_loaded(false), m_inferencesMayBeRunInParallel(true) {
+          m_loaded(false),
+          m_inferencesMayBeRunInParallel(true) {
     VPUX_ELF_THROW_UNLESS(bufferManager, ArgsError, "Invalid BufferManager pointer");
     m_bufferManager = bufferManager;
     m_reader = std::make_shared<Reader<ELF_Bitness::Elf64>>(m_bufferManager, accessor);
@@ -696,7 +697,6 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             auto sectionAlignment = sectionHeader->sh_addralign;
 
             if ((sectionFlags & SHF_WRITE) == 0) {
-                // some "old" (e.g. PV) blobs may contain NOBITS sections with no SHF_WRITE flag
                 VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Allocating \"%s\" with no SHF_WRITE", section.getName());
             }
 
@@ -916,8 +916,7 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
         if (relocSecFlags & SHF_INFO_LINK) {
             targetSectionIdx = relocSecHdr->sh_info;
         } else {
-            VPUX_ELF_THROW(RelocError,
-                           "Rela section with no target section");
+            VPUX_ELF_THROW(RelocError, "Rela section with no target section");
             return;
         }
 
@@ -1060,9 +1059,7 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
         if (relocSecFlags & SHF_INFO_LINK) {
             targetSectionIdx = relocSecHdr->sh_info;
         } else {
-            VPUX_ELF_THROW(
-                    RelocError,
-                    "Rela section with no target section");
+            VPUX_ELF_THROW(RelocError, "Rela section with no target section");
             return;
         }
 
@@ -1207,7 +1204,8 @@ bool VPUXLoader::getInferencesMayBeRunInParallel() const {
 }
 
 void VPUXLoader::updateSharedScratchBuffers(const std::vector<DeviceBuffer>& buffers) {
-    VPUX_ELF_THROW_WHEN(m_sharedScratchBuffers.size() != buffers.size(), RuntimeError, "Incorrect amount of buffers for updateSharedScratchBuffers");
+    VPUX_ELF_THROW_WHEN(m_sharedScratchBuffers.size() != buffers.size(), RuntimeError,
+                        "Incorrect amount of buffers for updateSharedScratchBuffers");
     if (m_sharedScratchBuffers.empty()) {
         return;
     }

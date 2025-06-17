@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -19,6 +19,14 @@ namespace elf {
 
 class VPUXLoader;
 class HostParsedInferenceCommon;
+
+// For documentation see vcl_device_desc_t in Driver/Plugin/VCL
+struct DeviceDescriptor {
+    uint64_t size;
+    uint32_t deviceID;
+    uint16_t revision;
+    uint32_t tileCount;
+};
 
 // Structure that gathers configuration options for HPI instances.
 // Subject to various additions/modifications in the future
@@ -40,7 +48,7 @@ private:
 
 class HostParsedInference final {
 public:
-    HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr, elf::HPIConfigs hpiConfigs);
+    HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr, elf::HPIConfigs hpiConfigs, DeviceDescriptor* deviceDescriptor = nullptr);
     HostParsedInference(const HostParsedInference& other);
     HostParsedInference(HostParsedInference&& other);
     ~HostParsedInference();
