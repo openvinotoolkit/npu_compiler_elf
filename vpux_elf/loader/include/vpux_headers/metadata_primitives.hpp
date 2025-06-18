@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -39,7 +39,7 @@ enum DType {
     DType_FP64 = 1,
     DType_FP32 = 2,
     DType_FP16 = 3,
-    DType_FP8 = 4,
+    DType_F8E5M2 = 4,
     DType_U64 = 5,
     DType_U32 = 6,
     DType_U16 = 7,
@@ -56,9 +56,10 @@ enum DType {
     DType_I2X = 18,
     DType_BFP16 = 19,
     DType_U4 = 20,
-    DType_HF8 = 21,
+    DType_F8E4M3FN = 21,
+    DType_F8E8M0 = 22,
     DType_MIN = DType_NOT_SET,
-    DType_MAX = DType_HF8
+    DType_MAX = DType_F8E8M0
 };
 
 enum PreProcessColorSpace {
@@ -98,11 +99,12 @@ enum OVNodeType {
     OVNodeType_U16 = 15,
     OVNodeType_U32 = 16,
     OVNodeType_U64 = 17,
-    OVNodeType_F8E4M3 = 18,
+    OVNodeType_F8E4M3FN = 18,
     OVNodeType_F8E5M2 = 19,
     OVNodeType_NF4 = 20,
+    OVNodeType_F8E8M0 = 21,
     OVNodeType_MIN = OVNodeType_UNDEFINED,
-    OVNodeType_MAX = OVNodeType_NF4,
+    OVNodeType_MAX = OVNodeType_F8E8M0,
 };
 
 struct VPUX_ALIGNED_STRUCT(8) Identification {

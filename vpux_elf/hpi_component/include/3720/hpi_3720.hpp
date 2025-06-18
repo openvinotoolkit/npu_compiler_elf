@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -24,7 +24,7 @@ public:
 private:
     static constexpr uint32_t VERSION_MAJOR = 1;
     static constexpr uint32_t VERSION_MINOR = 3;
-    static constexpr uint32_t VERSION_PATCH = 4;
+    static constexpr uint32_t VERSION_PATCH = 5;
 };
 
 }  // namespace elf

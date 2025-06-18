@@ -1,6 +1,6 @@
 
 //
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -44,11 +44,10 @@ namespace {
 
 constexpr uint32_t VPUX40XX_VERSION_MAJOR = 1;
 constexpr uint32_t VPUX40XX_VERSION_MINOR = 2;
-constexpr uint32_t VPUX40XX_VERSION_PATCH = 5;
+constexpr uint32_t VPUX40XX_VERSION_PATCH = 6;
 
 
-
-} // namespace
+}  // namespace
 
 void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
     metrics.bw_base = BW_BASE;
@@ -62,7 +61,7 @@ void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
     }
 }
 
-HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archKind) :  archKind_(archKind) {
+HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archKind): archKind_(archKind) {
     symTab_.reserve(2);
     secTypeContainers_.reserve(2);
     {

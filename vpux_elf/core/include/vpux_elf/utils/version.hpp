@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2024 Intel Corporation
+// Copyright (C) 2024-2025 Intel Corporation
 // SPDX-License-Identifier: Apache 2.0
 //
 
@@ -75,30 +75,6 @@ private:
     uint32_t patch = 0;
 
     bool isValid = false;
-};
-
-
-//
-// VersioningError extension
-//
-
-class VersioningError : public elf::RuntimeError {
-public:
-    explicit VersioningError(const char* what, elf::Version providedVersion, elf::Version requiredVersion)
-            : RuntimeError(what), m_providedVersion(providedVersion), m_requiredVersion(requiredVersion)  {
-    }
-
-    Version getProvidedVersion() {
-        return m_providedVersion;
-    }
-
-    Version getRequiredVersion() {
-        return m_requiredVersion;
-    }
-
-private:
-    Version m_providedVersion;
-    Version m_requiredVersion;
 };
 
 } // namespace elf
