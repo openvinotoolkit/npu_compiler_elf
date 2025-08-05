@@ -1,6 +1,6 @@
 //
 // Copyright (C) 2023-2025 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// SPDX-License-Identifier: Apache-2.0
 //
 
 #pragma once
@@ -33,6 +33,20 @@ using BasicString = char[MAX_STRING_LEN];
 using ArchName = BasicString;
 using BlobName = BasicString;
 using TensorName = BasicString;
+
+// The enums below are used by the compiler and by the L0 UMD. They are used to pass information from the compiler to
+// L0 UMD. The loader does not use them and acts as a simple carrier of opaque data.
+// All conversions from ELF types to L0 types are done by L0 UMD. This means changing them can break compatibility and
+// it must be done only with great care.
+//
+// Compatibility-breaking changes (require at least a minor version update):
+//  - modifying value of an enum label (e.g. chaning DType_FP32 value from 2 to 100)
+//
+// Build-breaking changes (require code changes in compiler and/or L0 UMD):
+//  - renaming an enum label (e.g. renaming DType_FP8 to DType_F8E5M2)
+//
+// To avoid unnecessarily breaking compatibility, new types must always be added at the end of the list.
+// Ideally, the loader should not define these types and simply treat them as opaque data.
 
 enum DType {
     DType_NOT_SET = 0,
@@ -103,8 +117,10 @@ enum OVNodeType {
     OVNodeType_F8E5M2 = 19,
     OVNodeType_NF4 = 20,
     OVNodeType_F8E8M0 = 21,
+    OVNodeType_I2 = 22,
+    OVNodeType_U2 = 23,
     OVNodeType_MIN = OVNodeType_UNDEFINED,
-    OVNodeType_MAX = OVNodeType_F8E8M0,
+    OVNodeType_MAX = OVNodeType_U2,
 };
 
 struct VPUX_ALIGNED_STRUCT(8) Identification {

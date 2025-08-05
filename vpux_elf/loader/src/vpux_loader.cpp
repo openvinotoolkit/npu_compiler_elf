@@ -1,13 +1,15 @@
 //
 // Copyright (C) 2023-2025 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// SPDX-License-Identifier: Apache-2.0
 //
 
 //
 
+#include <algorithm>
 #include <cstring>
 
 #include <memory>
+#include <unordered_map>
 #include <vpux_loader/vpux_loader.hpp>
 #include "vpux_elf/types/section_header.hpp"
 #include "vpux_elf/utils/error.hpp"
@@ -401,27 +403,26 @@ const auto VPU_HIGH_27_BIT_OR_Relocation = [](void* targetAddr, const elf::Symbo
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\tHigh 27 bits reloc, addr %p addrVal 0x%llx  symVal 0x%llx addend %llu", addr,
                  *addr, symVal, addend);
 
-    auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) &
-                              ~0xE0'0000;
+    auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) & ~0xE0'0000;
     auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4);  // only [30:4]
     *addr |= (static_cast<uint64_t>(patchAddr) << 37);                // set [64:37]
 };
 
-const auto VPU_LO_21_BIT_RSHIFT_2_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
-                                                  const Elf_Sxword addend) -> void {
+const auto VPU_32_OR_LO_19_LSB_21_RSHIFT_2_Relocation = [](void* targetAddr, const elf::SymbolEntry& targetSym,
+                                                           const Elf_Sxword addend) -> void {
     auto addr = reinterpret_cast<uint32_t*>(targetAddr);
     auto symVal = targetSym.st_value;
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\tLow 21 bits, rshift 2 reloc, addr %p symVal 0x%llx addend %llu", addr,
                  symVal, addend);
 
     auto patchAddr = (static_cast<uint32_t>(symVal + addend) & LO_21_BIT_MASK) >> 2;
-    *addr &= ~LO_21_BIT_MASK;
+    *addr &= ~(LO_21_BIT_MASK >> 2);
     *addr |= patchAddr;
 };
 
 }  // namespace
 
-const std::map<Elf_Word, VPUXLoader::Action> VPUXLoader::actionMap = {
+const std::unordered_map<Elf_Word, VPUXLoader::Action> VPUXLoader::actionMap = {
         {SHT_NULL, Action::None},
         {SHT_PROGBITS, Action::AllocateAndLoad},
         {SHT_SYMTAB, Action::RegisterUserIO},
@@ -442,7 +443,7 @@ const std::map<Elf_Word, VPUXLoader::Action> VPUXLoader::actionMap = {
         {VPU_SHT_PERF_METRICS, Action::None},
 };
 
-const std::map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoader::relocationMap = {
+const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoader::relocationMap = {
         {R_VPU_64, VPU_64_BIT_Relocation},
         {R_VPU_16_SUM, VPU_16_BIT_SUM_Relocation},
         {R_VPU_64_MULT, VPU_64_BIT_MULT_Relocation},
@@ -470,7 +471,7 @@ const std::map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoade
         {R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16, VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16, VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation},
         {R_VPU_HIGH_27_BIT_OR, VPU_HIGH_27_BIT_OR_Relocation},
-        {R_VPU_LO_21_RSHIFT_2, VPU_LO_21_BIT_RSHIFT_2_Relocation},
+        {R_VPU_32_OR_LO_19_LSB_21_RSHIFT_2, VPU_32_OR_LO_19_LSB_21_RSHIFT_2_Relocation},
 };
 
 VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
@@ -499,7 +500,13 @@ VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
 
         // Early fetch of IO buffer specs
         const auto action = actionMap.find(sectionType);
-        if (action->second == Action::RegisterUserIO) {
+        if (action == actionMap.end()) {
+            if (sectionType >= elf::SHT_LOUSER && sectionType <= elf::SHT_HIUSER) {
+                VPUX_ELF_LOG(LogLevel::LOG_WARN, "Unrecognized Section Type in User range %x", sectionType);
+            } else {
+                VPUX_ELF_THROW(ImplausibleState, "Unrecognized Section Type outside of User range");
+            }
+        } else if (action->second == Action::RegisterUserIO) {
             earlyFetchIO(section);
         }
     }
@@ -527,7 +534,8 @@ VPUXLoader::VPUXLoader(const VPUXLoader& other)
           m_loaded(other.m_loaded),
           m_symbolSectionTypes(other.m_symbolSectionTypes),
           m_inferencesMayBeRunInParallel(other.m_inferencesMayBeRunInParallel),
-          m_sharedScratchBuffers(other.m_sharedScratchBuffers) {
+          m_sharedScratchBuffers(other.m_sharedScratchBuffers),
+          m_scratchRelocations(other.m_scratchRelocations) {
     reloadNewBuffers();
     applyRelocations(*m_relocationSectionIndexes);
 }
@@ -550,7 +558,8 @@ VPUXLoader::VPUXLoader(const VPUXLoader& other, const std::vector<SymbolEntry>& 
           m_loaded(other.m_loaded),
           m_symbolSectionTypes(other.m_symbolSectionTypes),
           m_inferencesMayBeRunInParallel(other.m_inferencesMayBeRunInParallel),
-          m_sharedScratchBuffers(other.m_sharedScratchBuffers) {
+          m_sharedScratchBuffers(other.m_sharedScratchBuffers),
+          m_scratchRelocations(other.m_scratchRelocations) {
     reloadNewBuffers();
     applyRelocations(*m_relocationSectionIndexes);
 }
@@ -577,6 +586,7 @@ VPUXLoader& VPUXLoader::operator=(const VPUXLoader& other) {
     m_loaded = other.m_loaded;
     m_inferencesMayBeRunInParallel = other.m_inferencesMayBeRunInParallel;
     m_sharedScratchBuffers = other.m_sharedScratchBuffers;
+    m_scratchRelocations = other.m_scratchRelocations;
 
     reloadNewBuffers();
     applyRelocations(*m_relocationSectionIndexes);
@@ -677,6 +687,27 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
 
             auto& inferBufferInfo = m_inferBufferContainer.safeInitBufferInfoAtIndex(sectionCtr);
             inferBufferInfo.mBufferDetails.mHasData = true;
+
+            // The information about write access from an NPU core to a section buffer is crucial to correctly share
+            // section buffers between loader instances belonging to the same clone tree.
+            //
+            // Below are the possible states of a loader instance in a clone tree:
+            //  - L0 created from blob X (root) - Is an original instance and can have cloned instances created from it,
+            //  with which it will be able to share section buffers.
+            //  - L1 cloned from L0 (node) - Is a cloned instance created from an original instance and can have cloned
+            //  instances created from it. It may share section buffers with L0 and any future cloned instances created
+            //  from L0 or itself.
+            //  - L2 cloned from L1 (node) - Is a cloned instance created from another cloned instance and can have
+            //  cloned instances created from it. It may share section buffers with L0 and L1 and any future cloned
+            //  instances created from L0, L1 or itself.
+            //  - L3 created from blob X (root) - Is the same as L0, but it is unrelated to the instances above in terms
+            //  of buffers sharing, even though it was created from the same blob X.
+            //
+            // When we are executing this code, we are creating an original instance.
+            //
+            // The current implementation assumes all loader instances belonging to the same clone tree can run in
+            // parallel, thus any writable section (see SHF_WRITE definition in section_header.hpp for details about the
+            // meaning of writable) is considered not shareable with other loader instances.
             inferBufferInfo.mBufferDetails.mIsShared = sectionFlags & SHF_WRITE ? false : true;
             inferBufferInfo.mBufferDetails.mIsProcessed = false;
 
@@ -696,6 +727,11 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             auto sectionSize = sectionHeader->sh_size;
             auto sectionAlignment = sectionHeader->sh_addralign;
 
+            // Based on the SHF_WRITE definition (see details in section_header.hpp) in the ELF format and since the
+            // format does not impose restrictions on using (i.e. setting) the flag together with different section
+            // types, we must allow NOBITS sections with SHF_WRITE not set. Additionally, some "old" (e.g. PV) blobs may
+            // contain NOBITS sections with no SHF_WRITE flag, so we are forced anyway to allow NOBITS sections with
+            // SHF_WRITE not set in order to maintain compatibility.
             if ((sectionFlags & SHF_WRITE) == 0) {
                 VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Allocating \"%s\" with no SHF_WRITE", section.getName());
             }
@@ -708,7 +744,7 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
             inferBufferInfo.mBuffer = m_inferBufferContainer.buildAllocatedDeviceBuffer(
                     BufferSpecs(sectionAlignment, sectionSize, sectionFlags));
 
-            if (inferBufferInfo.mBuffer->getBuffer().cpu_addr() == nullptr) {
+            if (inferBufferInfo.mBuffer->getBuffer().vpu_addr() == 0) {
                 // driver did share scratch and returned empty allocation
                 // that is to be updated later
                 m_sharedScratchBuffers.push_back(sectionCtr);
@@ -724,11 +760,13 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
         }
 
         case Action::Relocate: {
-            if (sectionFlags & VPU_SHF_JIT) {
-                // Trigger read of section data so that after load completes the AccessManager object can
-                // be safely deleted
-                section.getData<void>();
+            // Trigger read of section data so that after load completes the AccessManager object can
+            // be safely deleted
+            // note: do it for both JIT and non-JIT relocations as the latter maybe delayed to post-load
+            // in case of scratch sharing enabled
+            section.getData<void>();
 
+            if (sectionFlags & VPU_SHF_JIT) {
                 VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "Registering JIT Relocation %zu", sectionCtr);
                 m_jitRelocations->push_back(static_cast<int>(sectionCtr));
             } else {
@@ -767,12 +805,11 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
     // Load actual buffers for the first time
     loadBuffers();
 
-    if (m_sharedScratchBuffers.empty()) {
-        // execute relocations only if sharing did not happen
-        // otherwise we have empty allocations and cannot trigger relocations
-        // unless shared allocations become available (after updateSharedScratchBuffers)
-        applyRelocations(*m_relocationSectionIndexes);
+    if (!m_sharedScratchBuffers.empty()) {
+        cacheScratchRelocations();
     }
+
+    applyRelocations(*m_relocationSectionIndexes);
 
     VPUX_ELF_LOG(LogLevel::LOG_INFO, "Allocated %zu sections", m_inferBufferContainer.getBufferInfoCount());
 
@@ -780,6 +817,58 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTa
     m_loaded = true;
 
     return;
+}
+
+void VPUXLoader::cacheScratchRelocations() {
+    m_scratchRelocations = std::make_shared<std::unordered_map<size_t, std::vector<size_t>>>();
+    for (const auto& relocationSectionIdx : *m_relocationSectionIndexes) {
+        const auto& relocSection = m_reader->getSection(relocationSectionIdx);
+        auto relocations = relocSection.getData<elf::RelocationAEntry>();
+        auto numRelocs = relocSection.getEntriesNum();
+
+        auto relocSecHdr = relocSection.getHeader();
+        auto symTabIdx = relocSecHdr->sh_link;
+
+        auto getSymTab = [&](size_t& symTabEntries) -> const SymbolEntry* {
+            if (symTabIdx == VPU_RT_SYMTAB) {
+                return m_runtimeSymTabs.data();
+            }
+
+            const auto& symTabSection = m_reader->getSection(symTabIdx);
+            auto symTabSectionHdr = symTabSection.getHeader();
+            symTabEntries = symTabSection.getEntriesNum();
+
+            VPUX_ELF_THROW_UNLESS(checkSectionType(symTabSectionHdr, elf::SHT_SYMTAB), RelocError,
+                                  "Reloc section pointing to snon-symtab");
+
+            return symTabSection.getData<elf::SymbolEntry>();
+        };
+
+        size_t symTabEntries = 0;
+        auto symTabs = getSymTab(symTabEntries);
+
+        for (size_t relocIdx = 0; relocIdx < numRelocs; ++relocIdx) {
+            const elf::RelocationAEntry& relocation = relocations[relocIdx];
+            auto relSymIdx = elf64RSym(relocation.r_info);
+            elf::SymbolEntry targetSymbol = symTabs[relSymIdx];
+            auto symbolTargetSectionIdx = targetSymbol.st_shndx;
+
+            const auto isSymbolSharedScratch = std::find(m_sharedScratchBuffers.begin(), m_sharedScratchBuffers.end(),
+                                                         symbolTargetSectionIdx) != m_sharedScratchBuffers.end();
+
+            auto relType = elf64RType(relocation.r_info);
+            if (isSymbolSharedScratch) {
+                // check if all scratch based relocations are R_VPU_64
+                // R_VPU_64 is "pure" relocation and does not require target buffer reloading
+                // because it does not depend on content of target before execution
+                // we rely on that in updateSharedScratchBuffers by not reloading buffers
+                // before triggering relocations
+                VPUX_ELF_THROW_WHEN(static_cast<elf::VPUXLoader::RelocationType>(relType) != R_VPU_64, RelocError,
+                                    "Encountered relocation type that is not R_VPU_64 based on scratch");
+                (*m_scratchRelocations)[relocationSectionIdx].push_back(relocIdx);
+            }
+        }
+    }
 }
 
 void VPUXLoader::updateSharedBuffers(const std::vector<std::size_t>& relocationSectionIndexes) {
@@ -836,6 +925,12 @@ void VPUXLoader::loadBuffers() {
                 bufferSpecs.procFlags = section.getHeader()->sh_flags;
                 bufferInfo.mBuffer = m_inferBufferContainer.buildAllocatedDeviceBuffer(bufferSpecs);
 
+                const auto backupSize = backupBufferInfo.mBuffer->getBuffer().size();
+                const auto inferSize = bufferInfo.mBuffer->getBuffer().size();
+
+                VPUX_ELF_THROW_UNLESS(backupSize <= inferSize, RuntimeError,
+                                      "Mismatch between section backup size and allocated device buffer size");
+
                 // Copy data from backup to infer buffer
                 bufferInfo.mBuffer->loadWithLock(backupBufferInfo.mBuffer->getBuffer().cpu_addr(),
                                                  backupBufferInfo.mBuffer->getBuffer().size());
@@ -858,9 +953,11 @@ void VPUXLoader::reloadNewBuffers() {
             auto& backupBufferInfo = m_backupBufferContainer.getBufferInfoFromIndex(sectionIndex);
             auto backupBufferLock = ElfBufferLockGuard(backupBufferInfo.mBuffer.get());
 
-            VPUX_ELF_THROW_UNLESS(
-                    backupBufferInfo.mBuffer->getBuffer().size() == inferBufferInfo.mBuffer->getBuffer().size(),
-                    RuntimeError, "Mismatch between section backup size and allocated device buffer size");
+            const auto backupSize = backupBufferInfo.mBuffer->getBuffer().size();
+            const auto inferSize = inferBufferInfo.mBuffer->getBuffer().size();
+
+            VPUX_ELF_THROW_UNLESS(backupSize <= inferSize, RuntimeError,
+                                  "Mismatch between section backup size and allocated device buffer size");
             inferBufferInfo.mBuffer->loadWithLock(backupBufferInfo.mBuffer->getBuffer().cpu_addr(),
                                                   inferBufferInfo.mBuffer->getBuffer().size());
             VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Loading with lock %llu bytes from %p to %p",
@@ -870,7 +967,133 @@ void VPUXLoader::reloadNewBuffers() {
     }
 }
 
-void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSectionIndexes) {
+void VPUXLoader::applyScratchRelocations() {
+    VPUX_ELF_THROW_WHEN(m_scratchRelocations == nullptr, RelocError,
+                        "Encountered an attempt to apply scratch relocations without corresponding cache");
+
+    for (const auto& relocationSectionEntry : *m_scratchRelocations) {
+        const auto& relocationSectionIdx = relocationSectionEntry.first;
+        const auto& relocationEntriesIndexes = relocationSectionEntry.second;
+
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "applying relocation section %u", relocationSectionIdx);
+
+        const auto& relocSection = m_reader->getSection(relocationSectionIdx);
+        auto relocations = relocSection.getData<elf::RelocationAEntry>();
+        auto relocSecHdr = relocSection.getHeader();
+        auto numRelocs = relocSection.getEntriesNum();
+
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRelA section with %zu elements at addr %p", numRelocs, relocations);
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRelA section info, link flags 0x%x %u 0x%llx", relocSecHdr->sh_info,
+                     relocSecHdr->sh_link, relocSecHdr->sh_flags);
+
+        // At this point we assume that all the section indexes passed to this method
+        // are containing a section of sh_type == SHT_RELA. So, the sh_link
+        // must point only to a section header index of the associated symbol table or to the reserved
+        // symbol range of sections.
+        auto symTabIdx = relocSecHdr->sh_link;
+        VPUX_ELF_THROW_UNLESS((symTabIdx < m_reader->getSectionsNum() || (symTabIdx == VPU_RT_SYMTAB)), RangeError,
+                              "sh_link exceeds the number of entries.")
+
+        // by convention, we will assume symTabIdx==VPU_RT_SYMTAB to be the "built-in" symtab
+        auto getSymTab = [&](size_t& symTabEntries) -> const SymbolEntry* {
+            if (symTabIdx == VPU_RT_SYMTAB) {
+                return m_runtimeSymTabs.data();
+            }
+
+            const auto& symTabSection = m_reader->getSection(symTabIdx);
+            auto symTabSectionHdr = symTabSection.getHeader();
+            symTabEntries = symTabSection.getEntriesNum();
+
+            VPUX_ELF_THROW_UNLESS(checkSectionType(symTabSectionHdr, elf::SHT_SYMTAB), RelocError,
+                                  "Reloc section pointing to snon-symtab");
+
+            return symTabSection.getData<elf::SymbolEntry>();
+        };
+
+        size_t symTabEntries = 0;
+        auto symTabs = getSymTab(symTabEntries);
+
+        auto relocSecFlags = relocSecHdr->sh_flags;
+        Elf_Word targetSectionIdx = 0;
+        if (relocSecFlags & SHF_INFO_LINK) {
+            targetSectionIdx = relocSecHdr->sh_info;
+        } else {
+            VPUX_ELF_THROW(RelocError, "Rela section with no target section");
+            return;
+        }
+
+        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
+                            "invalid target section from rela section");
+
+        auto targetSection = m_reader->getSection(targetSectionIdx);
+
+        // at this point we assume that all sections have an address, to which we can apply a simple lookup
+        auto& targetSectionBuf = m_inferBufferContainer.getBufferInfoFromIndex(targetSectionIdx).mBuffer;
+        auto targetSectionLock = ElfBufferLockGuard(targetSectionBuf.get());
+
+        auto targetSectionAddr = targetSectionBuf->getBuffer().cpu_addr();
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "Relocations are targeting section at addr %p named %s", targetSectionAddr,
+                     targetSection.getName());
+
+        // apply the actual relocations
+
+        for (auto relocIdx : relocationEntriesIndexes) {
+            const elf::RelocationAEntry& relocation = relocations[relocIdx];
+
+            auto relOffset = relocation.r_offset;
+
+            VPUX_ELF_THROW_UNLESS(relOffset < targetSectionBuf->getBuffer().size(), RelocError,
+                                  "RelocOffset outside of the section size");
+
+            auto relSymIdx = elf64RSym(relocation.r_info);
+
+            // there are two types of relocation that can be suported at this point
+            //    - special relocation that would use the runtime symbols
+            // received from the user
+            //    - relocations on the symbols defined in the symbol table inside the ELF file.
+            // In this case the section has a specific number of entries (need to use the getEntriesNum method of
+            // this section)
+            VPUX_ELF_THROW_WHEN((relSymIdx > symTabEntries && symTabIdx != VPU_RT_SYMTAB) ||
+                                        (relSymIdx > m_runtimeSymTabs.size() && symTabIdx == VPU_RT_SYMTAB),
+                                RelocError, "SymTab index out of bounds!");
+
+            auto relType = elf64RType(relocation.r_info);
+            auto addend = relocation.r_addend;
+
+            auto reloc = relocationMap.find(static_cast<RelocationType>(relType));
+            VPUX_ELF_THROW_WHEN(reloc == relocationMap.end() || reloc->second == nullptr, RelocError,
+                                "Invalid relocation type detected");
+
+            auto relocFunc = reloc->second;
+
+            // the actual data that we need to modify
+            auto relocationTargetAddr = targetSectionAddr + relOffset;
+
+            // deliberate copy so we don't modify the contents of the original elf.
+            elf::SymbolEntry targetSymbol = symTabs[relSymIdx];
+            auto symbolTargetSectionIdx = targetSymbol.st_shndx;
+
+            uint64_t symValue = 0;
+            symValue = m_inferBufferContainer.getBufferInfoFromIndex(symbolTargetSectionIdx)
+                               .mBuffer->getBuffer()
+                               .vpu_addr();
+            VPUX_ELF_THROW_WHEN(symValue == 0, RelocError, "Relocation target section has no valid address");
+            targetSymbol.st_value += symValue;
+
+            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\tApplying Relocation at offset %llu symidx %u reltype %u addend %llu",
+                         relOffset, relSymIdx, relType, addend);
+
+            relocFunc((void*)relocationTargetAddr, targetSymbol, addend);
+        }
+    }
+}
+
+void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSectionIndexes, bool onScratchUpdate) {
+    if (onScratchUpdate) {
+        applyScratchRelocations();
+        return;
+    }
+
     VPUX_ELF_LOG(LogLevel::LOG_TRACE, "apply relocations");
     for (const auto& relocationSectionIdx : relocationSectionIndexes) {
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "applying relocation section %u", relocationSectionIdx);
@@ -970,11 +1193,24 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
             elf::SymbolEntry targetSymbol = symTabs[relSymIdx];
             auto symbolTargetSectionIdx = targetSymbol.st_shndx;
 
+            if (!m_sharedScratchBuffers.empty()) {
+                const auto isSymbolSharedScratch =
+                        std::find(m_sharedScratchBuffers.begin(), m_sharedScratchBuffers.end(),
+                                  symbolTargetSectionIdx) != m_sharedScratchBuffers.end();
+
+                if (isSymbolSharedScratch) {
+                    // it is shared scratch enabled and we are not triggered from updateScratchSharedBuffers
+                    // so scratch address is not known yet and corresponding relocations must be skipped
+                    continue;
+                }
+            }
+
             uint64_t symValue = 0;
             if (m_inferBufferContainer.hasBufferInfoAtIndex(symbolTargetSectionIdx)) {
                 symValue = m_inferBufferContainer.getBufferInfoFromIndex(symbolTargetSectionIdx)
                                    .mBuffer->getBuffer()
                                    .vpu_addr();
+                VPUX_ELF_THROW_WHEN(symValue == 0, RelocError, "Relocation target section has no valid address");
             }
             if (symValue || symTabIdx == VPU_RT_SYMTAB) {
                 targetSymbol.st_value += symValue;
@@ -999,9 +1235,7 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
             relocFunc((void*)relocationTargetAddr, targetSymbol, addend);
         }
     }
-
-    return;
-};
+}
 
 void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
                                      std::vector<DeviceBuffer>& profiling) {
@@ -1203,20 +1437,28 @@ bool VPUXLoader::getInferencesMayBeRunInParallel() const {
     return m_inferencesMayBeRunInParallel;
 }
 
-void VPUXLoader::updateSharedScratchBuffers(const std::vector<DeviceBuffer>& buffers) {
-    VPUX_ELF_THROW_WHEN(m_sharedScratchBuffers.size() != buffers.size(), RuntimeError,
+void VPUXLoader::updateSharedScratchBuffers(const std::vector<DeviceBuffer>& newBuffers) {
+    VPUX_ELF_THROW_WHEN(m_sharedScratchBuffers.size() != newBuffers.size(), RuntimeError,
                         "Incorrect amount of buffers for updateSharedScratchBuffers");
     if (m_sharedScratchBuffers.empty()) {
         return;
     }
 
-    reloadNewBuffers();
     size_t i = 0;
-    for (const auto& buffer : buffers) {
-        m_inferBufferContainer.getBufferInfoFromIndex(m_sharedScratchBuffers[i++]).mBuffer->resetBuffer(buffer);
+    bool changed = false;
+    for (const auto& newBuffer : newBuffers) {
+        const auto idx = m_sharedScratchBuffers[i++];
+        auto& oldManagedBuffer = m_inferBufferContainer.getBufferInfoFromIndex(idx).mBuffer;
+        if (newBuffer.vpu_addr() != oldManagedBuffer->getBuffer().vpu_addr()) {
+            changed = true;
+            oldManagedBuffer->resetBuffer(newBuffer);
+        }
     }
 
-    applyRelocations(*m_relocationSectionIndexes);
+    if (changed) {
+        // don't reload buffers and rely on scratch relocations to be "pure"
+        applyRelocations(*m_relocationSectionIndexes, true);
+    }
 }
 
 }  // namespace elf

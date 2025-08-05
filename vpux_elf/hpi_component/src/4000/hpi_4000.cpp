@@ -1,7 +1,7 @@
 
 //
 // Copyright (C) 2023-2025 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// SPDX-License-Identifier: Apache-2.0
 //
 
 // clang-format off
@@ -44,7 +44,10 @@ namespace {
 
 constexpr uint32_t VPUX40XX_VERSION_MAJOR = 1;
 constexpr uint32_t VPUX40XX_VERSION_MINOR = 2;
-constexpr uint32_t VPUX40XX_VERSION_PATCH = 6;
+constexpr uint32_t VPUX40XX_VERSION_PATCH = 7;
+
+// Patch version 6: Adding FP8 data types
+
 
 
 }  // namespace
@@ -135,10 +138,10 @@ void HostParsedInference_4000::setHostParsedInference(DeviceBuffer& devBuffer,
 
 elf::Version HostParsedInference_4000::getELFLibABIVersion() const {
     switch (archKind_) {
-        case elf::platform::ArchKind::VPUX40XX:
-            return {VPUX40XX_VERSION_MAJOR, VPUX40XX_VERSION_MINOR, VPUX40XX_VERSION_PATCH};
-        default:
-            break;
+    case elf::platform::ArchKind::VPUX40XX:
+        return {VPUX40XX_VERSION_MAJOR, VPUX40XX_VERSION_MINOR, VPUX40XX_VERSION_PATCH};
+    default:
+        break;
     }
     VPUX_ELF_THROW(RangeError, (elf::platform::stringifyArchKind(archKind_) + " arch is not supported").c_str());
     return {0, 0, 0};

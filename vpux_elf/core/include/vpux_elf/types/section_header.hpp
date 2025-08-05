@@ -1,6 +1,6 @@
 //
 // Copyright (C) 2023-2025 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// SPDX-License-Identifier: Apache-2.0
 //
 
 //
@@ -36,6 +36,11 @@ constexpr Elf_Word SHT_HIUSER        = 0xffffffff;
 
 //! Section flags
 constexpr Elf_Xword SHF_NONE            = 0x0;
+// As defined by the ELF format, the SHF_WRITE flag is set for a section that contains data that should be
+// writable during process execution. For NPU, this means the flag is set by the compiler for a section that
+// is known to be modified by any of the NPU cores during inference execution. This also means it is not set
+// for a section that is modified by the host at any point before inference execution (e.g. when applying
+// relocations during loading process).
 constexpr Elf_Xword SHF_WRITE           = 0x1;
 constexpr Elf_Xword SHF_ALLOC           = 0x2;
 constexpr Elf_Xword SHF_EXECINSTR       = 0x4;

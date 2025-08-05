@@ -1,5 +1,5 @@
-// Copyright (C) 2023 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// Copyright (C) 2023-2025 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 namespace MVCNN;
 
 enum MemoryLocation : byte {
@@ -211,7 +211,9 @@ table TensorReference {
 
   // Configuration for the IDU base_offset or ODU base_ptr registers.
   base_ptrs: [ushort];
-
+  
+  // If descriptor is set then it is an address of an indirect directml data descriptor.
+  // The directml data descriptor points to the data resource at runtime.
   // This data resource pointer should be added into the memory location address to get the actual data reference.
   descriptor: ulong;
 
