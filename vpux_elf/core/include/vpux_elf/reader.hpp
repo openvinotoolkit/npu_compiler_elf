@@ -1,14 +1,14 @@
 //
-// Copyright (C) 2023 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// Copyright (C) 2023-2025 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 //
 
 //
 
 #pragma once
 
+#include <cstddef>
 #include <limits>
-#include <unordered_map>
 #include <vector>
 
 #include <vpux_elf/types/data_types.hpp>
@@ -67,10 +67,10 @@ public:
         std::shared_ptr<ManagedBuffer> getDataBuffer(bool cpuOnlyAccess = false) const {
             std::shared_ptr<ManagedBuffer> buffer = nullptr;
 
-            // SHT_NOBITS - sections can have a size greater than the file
-            // which will cause offset out of bounds.
-            // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
-            // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
+        // SHT_NOBITS - sections can have a size greater than the file
+        // which will cause offset out of bounds.
+        // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
+        // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
             if (!((mHeader->sh_type == SHT_NOBITS) || (mHeader->sh_type == VPU_SHT_CMX_METADATA) ||
                   mHeader->sh_type == VPU_SHT_CMX_WORKSPACE)) {
                 buffer = mAccessManager->readInternal(
@@ -122,6 +122,14 @@ public:
             mSectionNames.resize(secNamesSection.sh_size);
             readBuffer = buildBufferFromMember(&mSectionNames[0], mSectionNames.size() * sizeof(mSectionNames[0]));
             mAccessManager->readExternal(secNamesSection.sh_offset, readBuffer);
+
+            auto numberOfSections = mElfHeader.e_shnum;
+            mSectionsCache.reserve(numberOfSections);
+            for (size_t secIdx = 0; secIdx < numberOfSections; secIdx++) {
+                const auto& secHeader = mSectionHeaders[secIdx];
+                const auto name = &mSectionNames[secHeader.sh_name];
+                mSectionsCache.emplace_back(mAccessManager, &secHeader, name);
+            }
         }
     }
 
@@ -143,14 +151,7 @@ public:
     const Section& getSection(size_t index) const {
         VPUX_ELF_THROW_WHEN(index >= mElfHeader.e_shnum, RangeError, "Section index out of bounds");
 
-        if (auto it = mSectionsCache.find(index); it != mSectionsCache.end()) {
-            return it->second;
-        }
-
-        const auto& secHeader = mSectionHeaders[index];
-        const auto name = &mSectionNames[secHeader.sh_name];
-
-        return mSectionsCache.insert(std::make_pair(index, Section(mAccessManager, &secHeader, name))).first->second;
+        return mSectionsCache[index];
     }
 
 private:
@@ -161,7 +162,7 @@ private:
     std::vector<typename ElfTypes<B>::SectionHeader> mSectionHeaders;
     std::vector<char> mSectionNames;
 
-    mutable std::unordered_map<size_t, Section> mSectionsCache;
+    mutable std::vector<Section> mSectionsCache;
 
     template <typename T>
     StaticBuffer buildBufferFromMember(T* member, size_t byteSize = sizeof(T)) {

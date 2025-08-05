@@ -1,6 +1,6 @@
 //
 // Copyright (C) 2023-2025 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// SPDX-License-Identifier: Apache-2.0
 //
 
 #include "vpux_elf/utils/error.hpp"
@@ -15,6 +15,8 @@
 #include <vpux_elf/utils/log.hpp>
 #include <vpux_hpi.hpp>
 #include <sstream>
+#include <cstdlib>
+#include <cstring>
 
 #if defined(CONFIG_TARGET_SOC_3720) || defined(HOST_BUILD)
 #include <hpi_3720.hpp>
@@ -138,6 +140,16 @@ size_t HostParsedInference::getHPISize() const {
 
 HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr, elf::HPIConfigs hpiConfigs, DeviceDescriptor* deviceDescriptor)
         : bufferManager(bufferMgr), accessManager(accessMgr), hpiCfg(hpiConfigs) {
+
+#ifdef NRELEASE
+    static constexpr auto ELF_THROW_COMPATIBILITY_ERROR_NAME = "ELF_THROW_COMPATIBILITY_ERROR";
+    const auto elfThrowCompatibilityErrorValue = std::getenv(ELF_THROW_COMPATIBILITY_ERROR_NAME);
+    VPUX_ELF_THROW_WHEN(
+        elfThrowCompatibilityErrorValue != nullptr &&
+        (std::strncmp(elfThrowCompatibilityErrorValue, "1", sizeof("1")) == 0),
+        CompatibilityError, "Compatibility error is forced by \"ELF_THROW_COMPATIBILITY_ERROR=1\"");
+#endif
+
     // create the loader object to cache sections
     loaders.emplace_back(std::make_unique<VPUXLoader>(accessMgr, bufferMgr));
 
@@ -177,7 +189,16 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
     uint8_t hardwareTileCount = elf::platform::getHardwareTileCount(archKind);
 
     if (deviceDescriptor != nullptr) {
+        // IMD case is allowed to omit device descriptor for now
+
         VPUX_ELF_THROW_WHEN(deviceDescriptor->size < sizeof(DeviceDescriptor), ArgsError, "DeviceDescriptor is passed, but its size is too small");
+
+        // tileCount from DeviceDescriptor is always present and "SKU-aware"
+        // e.g. if we are running on 5T NPU4 SKU it will report 5 instead of 6
+        // in contrast to getHardwareTileCount above
+
+        // cast to uint8_t even though DeviceDescriptor contains uint32_t because
+        // tileCount from the blob is uint8_t anyway, so no point in upcasting here
         hardwareTileCount = static_cast<uint8_t>(deviceDescriptor->tileCount);
     }
 

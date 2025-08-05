@@ -1,6 +1,6 @@
 #
-# Copyright (C) 2023 Intel Corporation
-# SPDX-License-Identifier: Apache 2.0
+# Copyright (C) 2023-2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 #
 
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
@@ -121,3 +121,6 @@ if(MSVC AND BUILD_COMPILER_FOR_DRIVER)
         endif()
     endif()
 endif()
+
+target_compile_definitions(${LIB_NAME} PRIVATE $<$<NOT:$<CONFIG:Release>>:NRELEASE>)
+target_compile_definitions(vpux_elf PRIVATE $<$<NOT:$<CONFIG:Release>>:NRELEASE>)

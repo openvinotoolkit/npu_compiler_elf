@@ -1,5 +1,5 @@
-# Copyright (C) 2023 Intel Corporation
-# SPDX-License-Identifier: Apache 2.0
+# Copyright (C) 2023-2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 
 # No license under any patent, copyright, trade secret or other intellectual
 # property right is granted to or conferred upon you by disclosure or delivery

@@ -1,6 +1,6 @@
 //
-// Copyright (C) 2023 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// Copyright (C) 2023-2025 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 //
 
 //
@@ -170,8 +170,9 @@ constexpr Elf_Word R_VPU_HIGH_27_BIT_OR = 23;
 
 // Originated from dyn_scale_fetch_addr[18:0] - 4B aligned
 // Formula:
+// Dst &= ~(LO_21_BIT_MASK >> 2);
 // Dst = ((S + A) & LO_21_BIT_MASK) >> 2
-constexpr Elf_Word R_VPU_LO_21_RSHIFT_2 = 24;
+constexpr Elf_Word R_VPU_32_OR_LO_19_LSB_21_RSHIFT_2 = 24;
 
 //
 // Symbol types

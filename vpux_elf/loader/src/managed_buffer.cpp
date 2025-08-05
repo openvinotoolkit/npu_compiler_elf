@@ -1,6 +1,6 @@
 //
-// Copyright (C) 2023 Intel Corporation
-// SPDX-License-Identifier: Apache 2.0
+// Copyright (C) 2023-2025 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
 //
 
 #include <cstring>
@@ -51,7 +51,7 @@ AllocatedDeviceBuffer::AllocatedDeviceBuffer(BufferManager* bManager, BufferSpec
         : ManagedBuffer(bSpecs), mBufferManager(bManager) {
     VPUX_ELF_THROW_UNLESS(bManager, ArgsError, "nullptr BufferManager");
     mDevBuffer = mBufferManager->allocate(mBufferSpecs);
-    VPUX_ELF_THROW_WHEN((mDevBuffer.cpu_addr() != nullptr) && (mDevBuffer.size() < bSpecs.size), AllocError,
+    VPUX_ELF_THROW_WHEN((mDevBuffer.vpu_addr() != 0) && (mDevBuffer.size() < bSpecs.size), AllocError,
                         "Failed to allocate DeviceBuffer");
 }
 
