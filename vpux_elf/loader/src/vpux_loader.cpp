@@ -827,6 +827,21 @@ void VPUXLoader::cacheScratchRelocations() {
         auto numRelocs = relocSection.getEntriesNum();
 
         auto relocSecHdr = relocSection.getHeader();
+
+        Elf_Word targetSectionIdx = 0;
+        auto relocSecFlags = relocSecHdr->sh_flags;
+        if (relocSecFlags & SHF_INFO_LINK) {
+            targetSectionIdx = relocSecHdr->sh_info;
+        } else {
+            VPUX_ELF_THROW(RelocError, "Rela section with no target section");
+        }
+
+        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
+                            "invalid target section from rela section");
+
+        const auto isTargetSharedScratch = std::find(
+            m_sharedScratchBuffers.begin(), m_sharedScratchBuffers.end(), targetSectionIdx) != m_sharedScratchBuffers.end();
+
         auto symTabIdx = relocSecHdr->sh_link;
 
         auto getSymTab = [&](size_t& symTabEntries) -> const SymbolEntry* {
@@ -857,14 +872,16 @@ void VPUXLoader::cacheScratchRelocations() {
                                                          symbolTargetSectionIdx) != m_sharedScratchBuffers.end();
 
             auto relType = elf64RType(relocation.r_info);
-            if (isSymbolSharedScratch) {
-                // check if all scratch based relocations are R_VPU_64
-                // R_VPU_64 is "pure" relocation and does not require target buffer reloading
-                // because it does not depend on content of target before execution
+            if (isSymbolSharedScratch || isTargetSharedScratch) {
+                // check if all scratch based relocations are R_VPU_64 or R_VPU_32
+                // R_VPU_64/32 are "pure" relocations and don't require target buffer reloading
+                // because they don't depend on content of target before execution
                 // we rely on that in updateSharedScratchBuffers by not reloading buffers
                 // before triggering relocations
-                VPUX_ELF_THROW_WHEN(static_cast<elf::VPUXLoader::RelocationType>(relType) != R_VPU_64, RelocError,
-                                    "Encountered relocation type that is not R_VPU_64 based on scratch");
+                VPUX_ELF_THROW_WHEN(static_cast<elf::VPUXLoader::RelocationType>(relType) != R_VPU_64 &&
+                                    static_cast<elf::VPUXLoader::RelocationType>(relType) != R_VPU_32,
+                                    RelocError,
+                                    "Encountered relocation type that is neither R_VPU_64, nor R_VPU_32 based on scratch");
                 (*m_scratchRelocations)[relocationSectionIdx].push_back(relocIdx);
             }
         }
@@ -1145,6 +1162,13 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
 
         VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
                             "invalid target section from rela section");
+
+        const auto isTargetSharedScratch = std::find(
+            m_sharedScratchBuffers.begin(), m_sharedScratchBuffers.end(), targetSectionIdx) != m_sharedScratchBuffers.end();
+
+        if (!m_sharedScratchBuffers.empty() && isTargetSharedScratch) {
+            continue;
+        }
 
         auto targetSection = m_reader->getSection(targetSectionIdx);
 
