@@ -50,6 +50,7 @@ constexpr uint32_t VPUX40XX_VERSION_PATCH = 7;
 
 
 
+
 }  // namespace
 
 void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
