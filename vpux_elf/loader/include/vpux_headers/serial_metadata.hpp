@@ -26,18 +26,6 @@ public:
     }
 };
 
-class MetadataSerialization {
-public:
-    static std::vector<uint8_t> serialize(NetworkMetadata& metadata) {
-        return SerialMetadata(metadata).serialize();
-    }
-
-    static const std::shared_ptr<NetworkMetadata> deserialize(const uint8_t* buffer, uint64_t size) {
-        const auto metadata = std::make_shared<NetworkMetadata>();
-        SerialMetadata(*metadata).deserialize(buffer, size);
-
-        return metadata;
-    }
-};
+using MetadataSerialization = SerialAccess<NetworkMetadata, SerialMetadata>;
 
 }  // namespace elf

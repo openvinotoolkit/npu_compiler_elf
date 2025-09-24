@@ -6,6 +6,7 @@
 #include "vpux_elf/utils/error.hpp"
 #include "vpux_headers/managed_buffer.hpp"
 #include "vpux_headers/platform.hpp"
+#include "vpux_headers/compiler_hash.hpp"
 #ifndef VPUX_ELF_LOG_UNIT_NAME
 #define VPUX_ELF_LOG_UNIT_NAME "VpuxHpi"
 #endif
@@ -101,6 +102,11 @@ void HostParsedInference::readPlatformInfo() {
     platformInfo = elf::platform::PlatformInfoSerialization::deserialize(platformInfoBufferPtr, platformInfoBufferSize);
 }
 
+void HostParsedInference::checkCompilerHash() {
+    const auto& sections = loaders.front()->getSectionsOfType(elf::VPU_SHT_COMPILER_HASH);
+    VPUX_ELF_THROW_WHEN(sections.size() > 1, RangeError, "Expected only one Compiler Hash section.");
+}
+
 elf::Version HostParsedInference::readVersioningInfo(uint32_t versionType) const {
     const auto& noteSections = loaders.front()->getSectionsOfType(elf::SHT_NOTE);
     for (auto section : noteSections) {
@@ -160,6 +166,9 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
 
     readMetadata();
     readPlatformInfo();
+
+    // Check compiler hash compatibility
+    checkCompilerHash();
 
     auto archKind = platformInfo->mArchKind;
 
@@ -221,6 +230,7 @@ void HostParsedInference::load() {
 
     const auto symbolSectionTypes = archSpecificHpi->getSymbolSectionTypes();
     auto symTabOverrideMode = archSpecificHpi->getSymbolSectionTypes().size() == 0 ? false : true;
+    auto explicitAllocationsEnabled = archSpecificHpi->getExplicitAllocationsEnabled();
 
     std::vector<uint64_t> entriesVct;
     if (platformInfo->mArchKind == elf::platform::ArchKind::VPUX37XX &&
@@ -238,7 +248,7 @@ void HostParsedInference::load() {
             const auto symbolTable = archSpecificHpi->getSymbolTable(idx);
             if (idx == 0) {
                 // first loader is created.
-                loaders[idx]->load(symbolTable, symTabOverrideMode, symbolSectionTypes);
+                loaders[idx]->load(symbolTable, symTabOverrideMode, symbolSectionTypes, explicitAllocationsEnabled);
             } else {
                 // create other loaders using the first one that has
                 // been initialized.
@@ -254,7 +264,7 @@ void HostParsedInference::load() {
         }
     } else {
         auto symbolTable = archSpecificHpi->getSymbolTable(metadata->mResourceRequirements.nn_slice_count_);
-        loaders.front()->load(symbolTable, symTabOverrideMode, symbolSectionTypes);
+        loaders.front()->load(symbolTable, symTabOverrideMode, symbolSectionTypes, explicitAllocationsEnabled);
         entriesVct.push_back(loaders.front()->getEntry()->getBuffer().vpu_addr());
     }
 

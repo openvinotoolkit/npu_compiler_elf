@@ -41,19 +41,7 @@ public:
     }
 };
 
-class PlatformInfoSerialization {
-public:
-    static std::vector<uint8_t> serialize(PlatformInfo& platformInfo) {
-        return SerialPlatformInfo(platformInfo).serialize();
-    }
-
-    static const std::shared_ptr<PlatformInfo> deserialize(const uint8_t* buffer, uint64_t size) {
-        const auto platformInfo = std::make_shared<PlatformInfo>();
-        SerialPlatformInfo(*platformInfo).deserialize(buffer, size);
-
-        return platformInfo;
-    }
-};
+using PlatformInfoSerialization = SerialAccess<PlatformInfo, SerialPlatformInfo>;
 
 }  // namespace platform
 
