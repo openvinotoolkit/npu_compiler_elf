@@ -23,6 +23,7 @@ public:
     virtual ~HostParsedInferenceCommon() = default;
     virtual std::vector<SymbolEntry> getSymbolTable(uint8_t index) const = 0;
     virtual std::vector<elf::Elf_Word> getSymbolSectionTypes() const;
+    virtual bool getExplicitAllocationsEnabled() const;
 
     /**
      * Get buffer specs of host parsed inference for specific architecture

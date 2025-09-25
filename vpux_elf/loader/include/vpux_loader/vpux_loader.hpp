@@ -14,8 +14,8 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include <vpux_elf/accessor.hpp>
 #include <vpux_elf/reader.hpp>
@@ -65,7 +65,7 @@ public:
     ~VPUXLoader();
 
     void load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTabOverrideMode = false,
-              const std::vector<elf::Elf_Word>& symbolSectionTypes = {});
+              const std::vector<elf::Elf_Word>& symbolSectionTypes = {}, bool explicitAllocations = false);
     elf::DeviceBufferContainer::BufferPtr getEntry();
 
     void applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,

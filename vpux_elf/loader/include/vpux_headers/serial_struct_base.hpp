@@ -308,4 +308,19 @@ private:
     }
 };
 
+template <typename DataType, typename SerialDataType>
+class SerialAccess {
+public:
+    static std::vector<uint8_t> serialize(DataType& data) {
+        return SerialDataType(data).serialize();
+    }
+
+    static std::shared_ptr<DataType> deserialize(const uint8_t* buffer, uint64_t size) {
+        const auto data = std::make_shared<DataType>();
+        SerialDataType(*data).deserialize(buffer, size);
+
+        return data;
+    }
+};
+
 }  // namespace elf
