@@ -29,6 +29,7 @@
 #include <vpux_elf/types/elf_structs.hpp>
 #include <vpux_elf/types/relocation_entry.hpp>
 #include <vpux_elf/types/symbol_entry.hpp>
+#include <vpux_elf/types/dma_symbol_entry.hpp>
 #include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_headers/metadata.hpp>
@@ -39,6 +40,7 @@ namespace elf {
 class VPUXLoader {
 private:
     using RelocationFunc = std::function<void(void*, const elf::SymbolEntry&, const Elf_Sxword)>;
+    using DmaRelocationFunc = std::function<void(void*, const elf::DmaSymbolEntry&, const Elf_Sxword)>;
     using RelocationType = Elf_Word;
 
     enum class Action {
@@ -54,6 +56,7 @@ private:
 
     static const std::unordered_map<Elf_Word, Action> actionMap;
     static const std::unordered_map<RelocationType, RelocationFunc> relocationMap;
+    static const std::unordered_map<RelocationType, DmaRelocationFunc> dmaRelocationMap;
 
 public:
     VPUXLoader(AccessManager* accessor, BufferManager* bufferManager);
@@ -92,6 +95,11 @@ private:
     void cacheScratchRelocations();
     void applyScratchRelocations();
 
+    template <typename SymbolType, typename SectionType, typename ResolveSymbolFunc, typename RelocateFunc>
+    void applyRelocations(SectionType& relocSection, SectionType& symbolSection,
+                                    std::vector<DeviceBuffer>& ioBuffers, uint8_t* targetSectionPtr,
+                                    size_t targetSectionSize, ResolveSymbolFunc resolveSymbol, RelocateFunc relocate);
+
     BufferManager* m_bufferManager;
     std::shared_ptr<Reader<ELF_Bitness::Elf64>> m_reader;
     DeviceBufferContainer m_inferBufferContainer;
@@ -108,7 +116,6 @@ private:
     std::shared_ptr<std::map<elf::Elf_Word /*section type*/, std::vector<size_t>>> /*section index*/
             m_sectionMap;
 
-    bool m_symTabOverrideMode;
     bool m_explicitAllocations;
     bool m_loaded;
     std::vector<elf::Elf_Word> m_symbolSectionTypes;

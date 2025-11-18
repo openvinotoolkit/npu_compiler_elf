@@ -174,6 +174,24 @@ constexpr Elf_Word R_VPU_HIGH_27_BIT_OR = 23;
 // Dst = ((S + A) & LO_21_BIT_MASK) >> 2
 constexpr Elf_Word R_VPU_32_OR_LO_19_LSB_21_RSHIFT_2 = 24;
 
+// Relocation which supports relocating all src DMA descriptor fields
+// relevant to dynamic strides. Formula can't be described by one equation
+// but relevant steps are listed below:
+// 1. Reduce DMA dims and strides.
+// 2. Calculate offset of the tile
+// 3. Write offset of the tile to src address field
+// 4. Write all src strides anda src size fields of a DMA descriptor
+constexpr Elf_Word R_VPU_DMA_TASK_INPUT = 25;
+
+// Relocation which supports relocating all dst DMA descriptor fields
+// relevant to dynamic strides. Formula can't be described by one equation
+// but relevant steps are listed below:
+// 1. Reduce DMA dims and strides.
+// 2. Calculate offset of the tile
+// 3. Write offset of the tile to dst address field
+// 4. Write all dst strides anda dst size fields of a DMA descriptor
+constexpr Elf_Word R_VPU_DMA_TASK_OUTPUT = 26;
+
 //
 // Symbol types
 //
@@ -191,6 +209,7 @@ constexpr Elf_Word VPU_SHT_CMX_WORKSPACE  = 0x8aaaaaad;
 constexpr Elf_Word VPU_SHT_PERF_METRICS   = 0x8aaaaaae;
 constexpr Elf_Word VPU_SHT_PLATFORM_INFO  = 0x8aaaaaaf;
 constexpr Elf_Word VPU_SHT_COMPILER_HASH  = 0x8aaaaab0;
+constexpr Elf_Word VPU_SHT_DMA_SYMBOLS    = 0x8aaaaab1;
 
 //
 // Section flags

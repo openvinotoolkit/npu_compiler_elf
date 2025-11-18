@@ -15,6 +15,7 @@
 #include "vpux_headers/device_buffer.hpp"
 #include "vpux_headers/device_buffer_container.hpp"
 #include "vpux_headers/managed_buffer.hpp"
+#include "vpux_headers/relocations.hpp"
 
 #ifndef VPUX_ELF_LOG_UNIT_NAME
 #define VPUX_ELF_LOG_UNIT_NAME "VpuxLoader"
@@ -401,8 +402,7 @@ const auto VPU_HIGH_27_BIT_OR_Relocation = [](void* targetAddr, const elf::Symbo
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\tHigh 27 bits reloc, addr %p addrVal 0x%llx  symVal 0x%llx addend %llu", addr,
                  *addr, symVal, addend);
 
-    auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) &
-                              ~0xE0'0000;
+    auto patchAddrUnsetTile = static_cast<uint32_t>(symVal + addend) & ~0xE0'0000;
     auto patchAddr = (patchAddrUnsetTile >> 4) & (0x7FFF'FFFF >> 4);  // only [30:4]
     *addr |= (static_cast<uint64_t>(patchAddr) << 37);                // set [64:37]
 };
@@ -441,6 +441,7 @@ const std::unordered_map<Elf_Word, VPUXLoader::Action> VPUXLoader::actionMap = {
         {VPU_SHT_PLATFORM_INFO, Action::None},
         {VPU_SHT_PERF_METRICS, Action::None},
         {VPU_SHT_COMPILER_HASH, Action::None},
+        {VPU_SHT_DMA_SYMBOLS, Action::None},
 };
 
 const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoader::relocationMap = {
@@ -471,8 +472,11 @@ const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc>
         {R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16, VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16_Relocation},
         {R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16, VPU_32_BIT_OR_B21_B26_UNSET_LOW_16_Relocation},
         {R_VPU_HIGH_27_BIT_OR, VPU_HIGH_27_BIT_OR_Relocation},
-        {R_VPU_32_OR_LO_19_LSB_21_RSHIFT_2, VPU_32_OR_LO_19_LSB_21_RSHIFT_2_Relocation},
-};
+        {R_VPU_32_OR_LO_19_LSB_21_RSHIFT_2, VPU_32_OR_LO_19_LSB_21_RSHIFT_2_Relocation}};
+
+const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::DmaRelocationFunc> VPUXLoader::dmaRelocationMap = {
+        {R_VPU_DMA_TASK_INPUT, relocations::dmaTaskInputRelocation},
+        {R_VPU_DMA_TASK_OUTPUT, relocations::dmaTaskOutputRelocation}};
 
 VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
         : m_inferBufferContainer(bufferManager),
@@ -529,7 +533,6 @@ VPUXLoader::VPUXLoader(const VPUXLoader& other)
           m_userOutputsDescriptors(other.m_userOutputsDescriptors),
           m_profOutputsDescriptors(other.m_profOutputsDescriptors),
           m_sectionMap(other.m_sectionMap),
-          m_symTabOverrideMode(other.m_symTabOverrideMode),
           m_explicitAllocations(other.m_explicitAllocations),
           m_loaded(other.m_loaded),
           m_symbolSectionTypes(other.m_symbolSectionTypes),
@@ -553,7 +556,6 @@ VPUXLoader::VPUXLoader(const VPUXLoader& other, const std::vector<SymbolEntry>& 
           m_userOutputsDescriptors(other.m_userOutputsDescriptors),
           m_profOutputsDescriptors(other.m_profOutputsDescriptors),
           m_sectionMap(other.m_sectionMap),
-          m_symTabOverrideMode(other.m_symTabOverrideMode),
           m_explicitAllocations(other.m_explicitAllocations),
           m_loaded(other.m_loaded),
           m_symbolSectionTypes(other.m_symbolSectionTypes),
@@ -579,7 +581,6 @@ VPUXLoader& VPUXLoader::operator=(const VPUXLoader& other) {
     m_userInputsDescriptors = other.m_userInputsDescriptors;
     m_userOutputsDescriptors = other.m_userOutputsDescriptors;
     m_profOutputsDescriptors = other.m_profOutputsDescriptors;
-    m_symTabOverrideMode = other.m_symTabOverrideMode;
     m_explicitAllocations = other.m_explicitAllocations;
     m_symbolSectionTypes = other.m_symbolSectionTypes;
     m_sectionMap = other.m_sectionMap;
@@ -623,12 +624,11 @@ elf::DeviceBufferContainer::BufferPtr VPUXLoader::getEntry() {
     return {};
 }
 
-void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTabOverrideMode,
+void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool,
                       const std::vector<elf::Elf_Word>& symbolSectionTypes, bool explicitAllocations) {
     VPUX_ELF_THROW_WHEN(m_loaded, SequenceError, "Sections were previously loaded.");
 
     m_runtimeSymTabs = runtimeSymTabs;
-    m_symTabOverrideMode = symTabOverrideMode;
     m_symbolSectionTypes = symbolSectionTypes;
     m_explicitAllocations = explicitAllocations;
 
@@ -1298,18 +1298,60 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
     }
 }
 
+template <typename SymbolType, typename SectionType, typename ResolveSymbolFunc, typename RelocateFunc>
+void VPUXLoader::applyRelocations(SectionType& relocSection, SectionType& symbolSection,
+                                            std::vector<DeviceBuffer>& ioBuffers, uint8_t* targetSectionPtr,
+                                            size_t targetSectionSize, ResolveSymbolFunc resolveSymbol,
+                                            RelocateFunc relocate) {
+    auto relocations = relocSection.template getData<elf::RelocationAEntry>();
+    auto numRelocs = relocSection.getEntriesNum();
+    auto symbols = symbolSection.template getData<SymbolType>();
+    auto numSymbols = symbolSection.getEntriesNum();
+
+    // apply the actual relocations
+    for (size_t relocIdx = 0; relocIdx < numRelocs; ++relocIdx) {
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t Solving Reloc at %p %zu", relocations, relocIdx);
+
+        const auto& relocation = relocations[relocIdx];
+
+        auto relOffset = relocation.r_offset;
+
+        VPUX_ELF_THROW_UNLESS(relOffset < targetSectionSize, RelocError, "RelocOffset outside of the section size");
+
+        SymbolType resolvedSymbol;
+
+        auto symIdx = elf64RSym(relocation.r_info);
+
+        VPUX_ELF_THROW_UNLESS(symIdx < numSymbols, RelocError, "SymTab index out of bounds!");
+
+        resolvedSymbol = symbols[symIdx];
+        resolveSymbol(resolvedSymbol, symIdx, ioBuffers);
+
+        auto relType = elf64RType(relocation.r_info);
+        auto addend = relocation.r_addend;
+
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\t applying Reloc offset symidx reltype addend %llu %u %u %llu", relOffset,
+                     symIdx, relType, addend);
+
+        auto targetAddr = targetSectionPtr + relOffset;
+
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t targetsectionAddr %p offs %llu result %p symIdx %u", targetSectionPtr,
+                     relOffset, targetAddr, symIdx);
+
+        relocate(static_cast<VPUXLoader::RelocationType>(relType), (void*)targetAddr, resolvedSymbol, addend);
+    }
+}
+
 void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
                                      std::vector<DeviceBuffer>& profiling) {
     VPUX_ELF_LOG(LogLevel::LOG_TRACE, "apply JITrelocations");
+
     for (const auto& relocationSectionIdx : *m_jitRelocations) {
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tapplying JITrelocation section %u", relocationSectionIdx);
 
         const auto& relocSection = m_reader->getSection(relocationSectionIdx);
-        auto relocations = relocSection.getData<elf::RelocationAEntry>();
         auto relocSecHdr = relocSection.getHeader();
-        auto numRelocs = relocSection.getEntriesNum();
 
-        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tJitRelA section with %zu elements at addr %p", numRelocs, relocations);
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tJitRelA section info, link flags 0x%x %u 0x%llx", relocSecHdr->sh_info,
                      relocSecHdr->sh_link, relocSecHdr->sh_flags);
 
@@ -1324,17 +1366,9 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
         VPUX_ELF_THROW_WHEN(symTabIdx == VPU_RT_SYMTAB, RelocError, "JitReloc pointing to runtime symtab idx");
 
         const auto& symTabSection = m_reader->getSection(symTabIdx);
-        auto symTabSectionHdr = symTabSection.getHeader();
-
-        VPUX_ELF_THROW_UNLESS(checkSectionType(symTabSectionHdr, elf::SHT_SYMTAB), RelocError,
-                              "Reloc section pointing to non-symtab");
-
-        auto symTabSize = symTabSection.getEntriesNum();
-        auto symTabs = symTabSection.getData<elf::SymbolEntry>();
-
-        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tSymTabIdx %u symTabSize %zu at %p", symTabIdx, symTabSize, symTabs);
 
         auto relocSecFlags = relocSecHdr->sh_flags;
+
         auto getUserAddrs = [&]() -> std::vector<DeviceBuffer> {
             if (relocSecFlags & VPU_SHF_USERINPUT) {
                 return std::vector<DeviceBuffer>(inputs);
@@ -1363,53 +1397,59 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
         auto targetSectionLock = ElfBufferLockGuard(targetSectionBuf.get());
 
         auto targetSectionAddr = targetSectionBuf->getBuffer().cpu_addr();
+        auto targetSectionSize = targetSectionBuf->getBuffer().size();
 
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t targetSectionAddr %p", targetSectionAddr);
 
-        // apply the actual relocations
-        for (size_t relocIdx = 0; relocIdx < numRelocs; ++relocIdx) {
-            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t Solving Reloc at %p %zu", relocations, relocIdx);
+        if (checkSectionType(symTabSection.getHeader(), elf::SHT_SYMTAB)) {
+            auto resolveRuntimeSymbol = [](elf::SymbolEntry& symbol, uint32_t symIdx,
+                                           std::vector<DeviceBuffer>& ioBuffers) {
+                symbol.st_value = ioBuffers[symIdx - 1].vpu_addr();
+            };
 
-            const elf::RelocationAEntry& relocation = relocations[relocIdx];
+            auto applyRelocation = [](RelocationType type, void* targetAddr, elf::SymbolEntry& resolvedSymbol,
+                                      Elf_Sxword addend) {
+                auto reloc = relocationMap.find(static_cast<VPUXLoader::RelocationType>(type));
+                VPUX_ELF_THROW_WHEN(reloc == relocationMap.end() || reloc->second == nullptr, RelocError,
+                                    "Invalid relocation type detected");
+                auto relocFunc = reloc->second;
 
-            auto relOffset = relocation.r_offset;
+                relocFunc((void*)targetAddr, resolvedSymbol, addend);
+            };
 
-            VPUX_ELF_THROW_UNLESS(relOffset < targetSectionBuf->getBuffer().size(), RelocError,
-                                  "RelocOffset outside of the section size");
+            applyRelocations<elf::SymbolEntry>(relocSection, symTabSection, userAddrs, targetSectionAddr,
+                                                         targetSectionSize, std::move(resolveRuntimeSymbol),
+                                                         std::move(applyRelocation));
+        } else if (checkSectionType(symTabSection.getHeader(), elf::VPU_SHT_DMA_SYMBOLS)) {
+            auto resolveDmaSymbol = [](elf::DmaSymbolEntry& symbol, uint32_t, std::vector<DeviceBuffer>& ioBuffers) {
+                auto bufferIdx = symbol.ioIndex;
+                symbol.address = ioBuffers[bufferIdx].vpu_addr();
+                auto ioBufferUserStrides = ioBuffers[bufferIdx].get_user_stride();
+                if (ioBufferUserStrides.has_value()) {
+                    VPUX_ELF_THROW_UNLESS(sizeof(ioBufferUserStrides.value()) <= sizeof(symbol.dmaStrides), RelocError,
+                                        "Mismatch between symbol DMA strides and user strides");
+                    VPUX_ELF_THROW_UNLESS(sizeof(ioBufferUserStrides.value()) <= sizeof(symbol.strides), RelocError,
+                                        "Mismatch between symbol strides and user strides");
+                    std::memcpy(symbol.dmaStrides, ioBufferUserStrides.value().data(), sizeof(symbol.dmaStrides));
+                    std::memcpy(symbol.strides, ioBufferUserStrides.value().data(), sizeof(symbol.strides));
+                }
+            };
 
-            auto symIdx = elf64RSym(relocation.r_info);
+            auto applyDmaRelocation = [](RelocationType type, void* targetAddr, elf::DmaSymbolEntry& resolvedSymbol,
+                                         Elf_Sxword addend) {
+                auto reloc = dmaRelocationMap.find(static_cast<VPUXLoader::RelocationType>(type));
+                VPUX_ELF_THROW_WHEN(reloc == dmaRelocationMap.end() || reloc->second == nullptr, RelocError,
+                                    "Invalid relocation type detected");
+                auto relocFunc = reloc->second;
 
-            VPUX_ELF_THROW_WHEN(symIdx > symTabSize, RelocError, "SymTab index out of bounds!");
-            VPUX_ELF_THROW_WHEN(symIdx > userAddrs.size(), RelocError,
-                                "Invalid symbol index. It exceeds the number of relevant device buffers");
+                relocFunc((void*)targetAddr, resolvedSymbol, addend);
+            };
 
-            auto relType = elf64RType(relocation.r_info);
-            auto addend = relocation.r_addend;
-
-            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\t applying Reloc offset symidx reltype addend %llu %u %u %llu",
-                         relOffset, symIdx, relType, addend);
-            auto reloc = relocationMap.find(static_cast<RelocationType>(relType));
-            VPUX_ELF_THROW_WHEN(reloc == relocationMap.end() || reloc->second == nullptr, RelocError,
-                                "Invalid relocation type detected");
-
-            auto relocFunc = reloc->second;
-            auto targetAddr = targetSectionAddr + relOffset;
-
-            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t targetsectionAddr %p offs %llu result %p userAddr 0x%x symIdx %u",
-                         targetSectionAddr, relOffset, targetAddr, (uint32_t)userAddrs[symIdx - 1].vpu_addr(),
-                         symIdx - 1);
-
-            elf::SymbolEntry origSymbol = symTabs[symIdx];
-
-            elf::SymbolEntry targetSymbol;
-            targetSymbol.st_info = 0;
-            targetSymbol.st_name = 0;
-            targetSymbol.st_other = 0;
-            targetSymbol.st_shndx = 0;
-            targetSymbol.st_value = userAddrs[symIdx - 1].vpu_addr();
-            targetSymbol.st_size = origSymbol.st_size;
-
-            relocFunc((void*)targetAddr, targetSymbol, addend);
+            applyRelocations<elf::DmaSymbolEntry>(relocSection, symTabSection, userAddrs, targetSectionAddr,
+                                                            targetSectionSize, std::move(resolveDmaSymbol),
+                                                            std::move(applyDmaRelocation));
+        } else {
+            VPUX_ELF_THROW(RelocError, "Relocation section references unknown symtab section format");
         }
     }
 }
