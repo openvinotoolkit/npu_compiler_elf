@@ -138,6 +138,12 @@ SymbolSection* Writer::addSymbolSection(const std::string& name) {
     return dynamic_cast<SymbolSection*>(m_sections.back().get());
 }
 
+DmaSymbolSection* Writer::addDmaSymbolSection(const std::string& name) {
+    m_sections.push_back(std::unique_ptr<DmaSymbolSection>(new DmaSymbolSection(name)));
+    m_sections.back()->setIndex(m_sections.size() - 1);
+    return dynamic_cast<DmaSymbolSection*>(m_sections.back().get());
+}
+
 EmptySection* Writer::addEmptySection(const std::string& name) {
     m_sections.push_back(std::unique_ptr<EmptySection>(new EmptySection(name)));
     m_sections.back()->setIndex(m_sections.size() - 1);

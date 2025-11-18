@@ -133,6 +133,8 @@ struct VPUX_ALIGNED_STRUCT(8) Identification {
     BlobName blob_name;
 };
 
+constexpr uint8_t TENSOR_REF_FLAG_DYNAMIC_STRIDES_SUPPORT = 0x1;
+
 struct VPUX_ALIGNED_STRUCT(8) TensorRef {
     uint64_t strides[MAX_TENSOR_REF_STRIDES];
     uint32_t dimensions[MAX_TENSOR_REF_DIMS];
@@ -141,7 +143,8 @@ struct VPUX_ALIGNED_STRUCT(8) TensorRef {
     DType data_type;
     uint32_t dimensions_size;
     uint32_t strides_size;
-    uint8_t pad1_[4] = {0};
+    uint8_t flags;
+    uint8_t pad1_[3] = {0};
 };
 
 static_assert(sizeof(TensorRef) == 384, "TensorRef size != 384");

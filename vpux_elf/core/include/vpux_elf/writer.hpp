@@ -11,6 +11,7 @@
 #include <vpux_elf/writer/section.hpp>
 
 #include <vpux_elf/writer/binary_data_section.hpp>
+#include <vpux_elf/writer/dma_symbol_section.hpp>
 #include <vpux_elf/writer/empty_section.hpp>
 #include <vpux_elf/writer/relocation_section.hpp>
 #include <vpux_elf/writer/string_section.hpp>
@@ -42,6 +43,7 @@ public:
 
     writer::RelocationSection* addRelocationSection(const std::string& name = {});
     writer::SymbolSection* addSymbolSection(const std::string& name = {});
+    writer::DmaSymbolSection* addDmaSymbolSection(const std::string& name = {});
     writer::EmptySection* addEmptySection(const std::string& name = {});
 
     template <typename T>
