@@ -1,0 +1,55 @@
+#
+# Copyright (C) 2022-2024 Intel Corporation
+# SPDX-License-Identifier: Apache 2.0
+#
+
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+-   repo: local
+    hooks:
+    -   id: embargo-names
+        name: Check embargo names
+        entry: ./.githooks/embargo-names.sh
+        language: script
+        stages: [commit]
+    -   id: embargo-names-commit-msg
+        name: Check embargo names in the commit message
+        entry: ./.githooks/embargo-names-commit-msg.sh
+        language: script
+        stages: [commit-msg]
+    -   id: copyright-headers
+        name: Check copyright headers
+        entry: ./.githooks/copyright-header.sh
+        language: script
+        stages: [manual]
+        exclude: 'thirdparty/.*|sw_runtime_kernels/.*|.*.log'
+    -   id: clang-format
+        name: clang-format
+        entry: clang-format -i
+        language: python
+        stages: [commit]
+        args: ["-style=file"]
+        types: [c++]
+        exclude: 'thirdparty/.*|sw_runtime_kernels/.*'
+        require_serial: false
+        additional_dependencies: ['clang-format==18.1.8']
+
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: check-json
+        exclude: .*tests/lit/.*
+    -   id: trailing-whitespace
+        exclude: 'thirdparty/.*|sw_runtime_kernels/.*|.*.md'
+
+-   repo: https://github.com/hhatto/autopep8
+    rev: v2.3.1
+    hooks:
+    -   id: autopep8
+        args:
+        - --max-line-length
+        - "119"
+        - --in-place
+        - --ignore
+        - E402
+        exclude: 'thirdparty/.*|sw_runtime_kernels/.*|npuw/.*|.*.bin$'
