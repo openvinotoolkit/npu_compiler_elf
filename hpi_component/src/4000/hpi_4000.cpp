@@ -1,6 +1,6 @@
 
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -10,15 +10,18 @@
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/types/section_header.hpp>
 #include <vpux_elf/types/vpu_extensions.hpp>
-#include <vector>
 #include <hpi_4000.hpp>
-#include <api/vpu_nnrt_api_40xx.h>
-#include <api/vpu_cmx_info_40xx.h>
-#include <api/vpu_pwrmgr_api.h>
+
+#include <vector>
 #include <string>
 #include <vector>
 #include <array>
 #include <cstring>
+
+#include <api/vpu_nnrt_api_40xx.h>
+#include <api/vpu_cmx_info_40xx.h>
+#include <api/vpu_pwrmgr_api.h>
+
 // clang-format on
 
 namespace elf {
@@ -90,7 +93,8 @@ BufferSpecs HostParsedInference_4000_Base::getParsedInferenceBufferSpecs() {
 void HostParsedInference_4000_Base::setHostParsedInference(DeviceBuffer& devBuffer,
                                                            const std::vector<uint64_t>& mapped_entry,
                                                            const ResourceRequirements& resReq,
-                                                           const uint64_t* perf_metrics, const elf::Version& version) {
+                                                           const uint64_t* perf_metrics, const elf::Version& version,
+                                                           uint64_t perfSectionSize) {
     auto hpi = reinterpret_cast<nn_public::VpuHostParsedInference*>(devBuffer.cpu_addr());
     *hpi = {};
 
@@ -99,6 +103,8 @@ void HostParsedInference_4000_Base::setHostParsedInference(DeviceBuffer& devBuff
     hpi->resource_requirements_.nn_slice_length_ = resReq.nn_slice_length_;
 
     if (perf_metrics) {
+        VPUX_ELF_THROW_UNLESS((perfSectionSize >= sizeof(VpuPerformanceMetrics)), ArgsError,
+                              "Performance metrics section size is smaller than expected!");
         memcpy(static_cast<void*>(&hpi->performance_metrics_), static_cast<const void*>(perf_metrics),
                sizeof(VpuPerformanceMetrics));
     } else {
@@ -106,6 +112,7 @@ void HostParsedInference_4000_Base::setHostParsedInference(DeviceBuffer& devBuff
     }
 
     hpi->mmi_access_ = static_cast<nn_public::VpuHostParsedInference::VpuMmiAccessMode>(version.getMIFormat());
+    VPUX_ELF_THROW_WHEN(mapped_entry.empty(), ArgsError, "mapped_entry vector is empty");
     hpi->mapped_.address = mapped_entry[0];
     hpi->mapped_.count = mapped_entry.size();
 }

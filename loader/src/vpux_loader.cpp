@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -475,9 +475,42 @@ const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc>
         {R_VPU_HIGH_27_BIT_OR, VPU_HIGH_27_BIT_OR_Relocation},
         {R_VPU_32_OR_LO_19_LSB_21_RSHIFT_2, VPU_32_OR_LO_19_LSB_21_RSHIFT_2_Relocation}};
 
+const std::unordered_map<VPUXLoader::RelocationType, uint8_t> VPUXLoader::relocationSizeMap = {
+        {R_VPU_64, 8},
+        {R_VPU_16_SUM, 2},
+        {R_VPU_64_MULT, 8},
+        {R_VPU_64_MULT_SUB, 8},
+        {R_VPU_64_OR, 8},
+        {R_VPU_DISP40_RTM, 8},
+        {R_VPU_64_LSHIFT, 8},
+        {R_VPU_32, 4},
+        {R_VPU_32_RTM, 4},
+        {R_VPU_32_SUM, 4},
+        {R_VPU_32_MULTICAST_BASE, 4},
+        {R_VPU_32_MULTICAST_BASE_SUB, 4},
+        {R_VPU_DISP28_MULTICAST_OFFSET, 4},
+        {R_VPU_DISP4_MULTICAST_OFFSET_CMP, 4},
+        {R_VPU_LO_21, 4},
+        {R_VPU_LO_21_SUM, 4},
+        {R_VPU_LO_21_MULTICAST_BASE, 4},
+        {R_VPU_16_LSB_21_RSHIFT_5, 4},
+        {R_VPU_LO_21_RSHIFT_4, 4},
+        {R_VPU_CMX_LOCAL_RSHIFT_5, 4},
+        {R_VPU_32_BIT_OR_B21_B26_UNSET, 4},
+        {R_VPU_64_BIT_OR_B21_B26_UNSET, 8},
+        {R_VPU_16_LSB_21_RSHIFT_5_LSHIFT_16, 4},
+        {R_VPU_16_LSB_21_RSHIFT_5_LSHIFT_CUSTOM, 4},
+        {R_VPU_32_BIT_OR_B21_B26_UNSET_HIGH_16, 2},
+        {R_VPU_32_BIT_OR_B21_B26_UNSET_LOW_16, 2},
+        {R_VPU_HIGH_27_BIT_OR, 8},
+        {R_VPU_32_OR_LO_19_LSB_21_RSHIFT_2, 4}};
+
 const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::DmaRelocationFunc> VPUXLoader::dmaRelocationMap = {
         {R_VPU_DMA_TASK_INPUT, relocations::dmaTaskInputRelocation},
         {R_VPU_DMA_TASK_OUTPUT, relocations::dmaTaskOutputRelocation}};
+
+const std::unordered_map<VPUXLoader::RelocationType, uint8_t> VPUXLoader::dmaRelocationSizeMap = {
+        {R_VPU_DMA_TASK_INPUT, 192}, {R_VPU_DMA_TASK_OUTPUT, 192}};
 
 VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
         : m_inferBufferContainer(bufferManager),
@@ -1088,6 +1121,12 @@ void VPUXLoader::applyScratchRelocations() {
             // the actual data that we need to modify
             auto relocationTargetAddr = targetSectionAddr + relOffset;
 
+            auto relocSizeInfo = relocationSizeMap.find(static_cast<RelocationType>(relType));
+            VPUX_ELF_THROW_WHEN(relocSizeInfo == relocationSizeMap.end(), RelocError,
+                                "Relocation type not detected in standard relocation size map");
+            VPUX_ELF_THROW_UNLESS((relOffset + relocSizeInfo->second) <= targetSectionBuf->getBuffer().size(),
+                                  RelocError, "Relocation writes overflow target section buffer");
+
             // deliberate copy so we don't modify the contents of the original elf.
             elf::SymbolEntry targetSymbol = symTabs[relSymIdx];
             auto symbolTargetSectionIdx = targetSymbol.st_shndx;
@@ -1226,6 +1265,12 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
 
             auto relocFunc = reloc->second;
 
+            auto relocSizeInfo = relocationSizeMap.find(static_cast<RelocationType>(relType));
+            VPUX_ELF_THROW_WHEN(relocSizeInfo == relocationSizeMap.end(), RelocError,
+                                "Relocation type not detected in standard relocation size map");
+            VPUX_ELF_THROW_UNLESS((relOffset + relocSizeInfo->second) <= targetSectionBuf->getBuffer().size(),
+                                  RelocError, "Relocation writes overflow target section buffer");
+
             // The actual address that we need to modify
             auto relocationTargetAddr = targetSectionAddr + relOffset;
 
@@ -1322,12 +1367,30 @@ void VPUXLoader::applyRelocations(SectionType& relocSection, SectionType& symbol
 
         auto symIdx = elf64RSym(relocation.r_info);
 
-        VPUX_ELF_THROW_UNLESS(symIdx < numSymbols, RelocError, "SymTab index out of bounds!");
+        // ELF standard symbol index range starts from 1 (0 means SHN_UNDEF). For DmaSymbol we allow index 0.
+        uint64_t symIdxLowerLimit = 0;
+        if constexpr (std::is_same_v<SymbolType, elf::SymbolEntry>) {
+            symIdxLowerLimit = 1;
+        }
+
+        VPUX_ELF_THROW_UNLESS(symIdx >= symIdxLowerLimit && symIdx < numSymbols, RelocError,
+                              "Symbol index out of bounds!");
 
         resolvedSymbol = symbols[symIdx];
         resolveSymbol(resolvedSymbol, symIdx, ioBuffers);
 
         auto relType = elf64RType(relocation.r_info);
+
+        auto relocSizeInfo = relocationSizeMap.find(static_cast<RelocationType>(relType));
+        auto dmaRelocSizeInfo = dmaRelocationSizeMap.find(static_cast<RelocationType>(relType));
+        VPUX_ELF_THROW_WHEN(relocSizeInfo == relocationSizeMap.end() && dmaRelocSizeInfo == dmaRelocationSizeMap.end(),
+                            RelocError, "Relocation type not detected in any relocation size maps");
+        VPUX_ELF_THROW_WHEN(relocSizeInfo != relocationSizeMap.end() && dmaRelocSizeInfo != dmaRelocationSizeMap.end(),
+                            RelocError, "Relocation type detected in both standard and DMA relocation size maps");
+        auto relocSize = (relocSizeInfo != relocationSizeMap.end()) ? relocSizeInfo->second : dmaRelocSizeInfo->second;
+        VPUX_ELF_THROW_UNLESS((relOffset + relocSize) <= targetSectionSize, RelocError,
+                              "Relocation writes overflow target section buffer");
+
         auto addend = relocation.r_addend;
 
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\t\t applying Reloc offset symidx reltype addend %llu %u %u %llu", relOffset,
@@ -1404,6 +1467,10 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
         if (checkSectionType(symTabSection.getHeader(), elf::SHT_SYMTAB)) {
             auto resolveRuntimeSymbol = [](elf::SymbolEntry& symbol, uint32_t symIdx,
                                            std::vector<DeviceBuffer>& ioBuffers) {
+                // Check symbol index validity: index 0 is reserved as STN_UNDEF (undefined symbol) in ELF standard,
+                // valid indices are 1-based since we use symIdx-1 to access ioBuffers array (0-based)
+                VPUX_ELF_THROW_WHEN(symIdx == 0 || symIdx > ioBuffers.size(), RelocError,
+                                    "Invalid symbol index for ioBuffers");
                 symbol.st_value = ioBuffers[symIdx - 1].vpu_addr();
             };
 

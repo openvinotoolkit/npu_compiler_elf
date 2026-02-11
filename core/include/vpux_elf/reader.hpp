@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -106,6 +106,8 @@ public:
                               "Section table overlaps ELF header");
         VPUX_ELF_THROW_UNLESS(mElfHeader.e_shnum, HeaderError,
                               "No sections detected, ELF blob without sections is unsupported!");
+        VPUX_ELF_THROW_UNLESS(mElfHeader.e_shstrndx != SHN_UNDEF, HeaderError,
+                              "Section name string table index is undefined");
         VPUX_ELF_THROW_UNLESS(mElfHeader.e_shstrndx < mElfHeader.e_shnum, HeaderError,
                               "Section name index exceeds section table");
 
@@ -149,7 +151,7 @@ public:
     }
 
     const Section& getSection(size_t index) const {
-        VPUX_ELF_THROW_WHEN(index >= mElfHeader.e_shnum, RangeError, "Section index out of bounds");
+        VPUX_ELF_THROW_WHEN(index >= mSectionsCache.size(), RangeError, "Section index out of section number");
 
         return mSectionsCache[index];
     }
