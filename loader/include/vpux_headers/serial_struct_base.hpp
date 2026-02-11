@@ -283,8 +283,15 @@ private:
         // Clear current contents
         element->clear();
 
+        auto elemDataOffset = currentDescriptor.mDataOffset;
+        auto elemNextDescOffset = currentDescriptor.mNextDescOffset;
         auto elemCount = currentDescriptor.mElementCount;
         auto elemSize = currentDescriptor.mElementSize;
+
+        if (elemNextDescOffset != 0) {
+            VPUX_ELF_THROW_UNLESS(elemDataOffset + elemCount * elemSize <= elemNextDescOffset, RangeError,
+                                  "serial descriptor contains invalid data member values");
+        }
 
         if (elemCount) {
             element->resize(elemCount);

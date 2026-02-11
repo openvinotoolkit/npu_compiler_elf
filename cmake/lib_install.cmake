@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2025 Intel Corporation.
+# Copyright (C) 2025-2026 Intel Corporation.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -104,9 +104,11 @@ install(DIRECTORY "${LOADER_DIR_HPI_INC}/3720"
 install(DIRECTORY "${LOADER_DIR_HPI_INC}/4000"
         DESTINATION cid/vpux_elf/loader/include/
         COMPONENT ${CID_COMPONENT})
+
 install(DIRECTORY "${LOADER_DIR_HPI_INC}/5000"
         DESTINATION cid/vpux_elf/loader/include/
         COMPONENT ${CID_COMPONENT})
+
 #
 # loader folder | -> src/ | 1 cpp
 
@@ -132,9 +134,11 @@ install(DIRECTORY "${LOADER_DIR_HPI_SRC}/3720"
 install(DIRECTORY "${LOADER_DIR_HPI_SRC}/4000"
         DESTINATION cid/vpux_elf/loader/src/
         COMPONENT ${CID_COMPONENT})
+
 install(DIRECTORY "${LOADER_DIR_HPI_SRC}/5000"
         DESTINATION cid/vpux_elf/loader/src/
         COMPONENT ${CID_COMPONENT})
+
 # core folder | -> include/ -> vpux_elf/ | -> types/
 #             |                          | -> utils/
 #             |                          | -> writer/

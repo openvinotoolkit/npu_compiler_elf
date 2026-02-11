@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -31,6 +31,7 @@
 #include <hpi_5000.hpp>
 #endif
 
+
 #include <string.h>
 // clang-format on
 
@@ -39,12 +40,12 @@ namespace {
 
 elf::platform::ArchKind archFromDeviceId(uint32_t deviceId) {
     switch (deviceId) {
-    case 0x7D1D:  /// MeteorLake (MTL-P, MTL-H)
-    case 0xAD1D:  /// ArrowLake (ARL)
+    case 0x7D1D:  // MeteorLake (MTL-P, MTL-H)
+    case 0xAD1D:  // ArrowLake (ARL)
         return elf::platform::ArchKind::VPUX37XX;
-    case 0x643E:  /// LunarLake (LNL)
+    case 0x643E:  // LunarLake (LNL)
         return elf::platform::ArchKind::VPUX40XX;
-    case 0xB03E:  /// PantherLake Mobile (PTL-P)
+    case 0xB03E:  // PantherLake Mobile (PTL-P)
         return elf::platform::ArchKind::VPUX501X;
     default:
         VPUX_ELF_LOG(LogLevel::LOG_ERROR, "Unrecognized device ID");
@@ -301,13 +302,16 @@ void HostParsedInference::load() {
     perfMetrics = readPerfMetrics();
     auto perfMetricsLock = ElfBufferLockGuard(perfMetrics.get());
     auto perfMetricsPtr = perfMetrics ? reinterpret_cast<uint64_t*>(perfMetrics->getBuffer().cpu_addr()) : nullptr;
+    auto perfMetricsSize = perfMetrics ? static_cast<uint64_t>(perfMetrics->getBuffer().size()) : uint64_t{0};
     archSpecificHpi->setHostParsedInference(parsedInferenceBuffer, entriesVct, metadata->mResourceRequirements,
-                                            perfMetricsPtr, miVersion);
+                                            perfMetricsPtr, miVersion, perfMetricsSize);
 }
 
 HostParsedInference::HostParsedInference(const HostParsedInference& other)
         : bufferManager(other.bufferManager),
           accessManager(other.accessManager),
+          archKind(other.archKind),
+          miVersion(other.miVersion),
           metadata(other.metadata),
           platformInfo(other.platformInfo),
           perfMetrics(other.perfMetrics) {
@@ -347,13 +351,16 @@ HostParsedInference::HostParsedInference(const HostParsedInference& other)
     auto parsedInferenceBuffer = parsedInference->getBuffer();
     auto perfMetricsLock = ElfBufferLockGuard(perfMetrics.get());
     auto perfMetricsPtr = perfMetrics ? reinterpret_cast<uint64_t*>(perfMetrics->getBuffer().cpu_addr()) : nullptr;
+    auto perfMetricsSize = perfMetrics ? static_cast<uint64_t>(perfMetrics->getBuffer().size()) : uint64_t{0};
     archSpecificHpi->setHostParsedInference(parsedInferenceBuffer, entriesVct, metadata->mResourceRequirements,
-                                            perfMetricsPtr, miVersion);
+                                            perfMetricsPtr, miVersion, perfMetricsSize);
 };
 
 HostParsedInference::HostParsedInference(HostParsedInference&& other)
         : bufferManager(other.bufferManager),
           accessManager(other.accessManager),
+          archKind(other.archKind),
+          miVersion(other.miVersion),
           metadata(other.metadata),
           platformInfo(other.platformInfo),
           perfMetrics(other.perfMetrics),
@@ -411,8 +418,9 @@ HostParsedInference& HostParsedInference::operator=(const HostParsedInference& r
     auto parsedInferenceBuffer = parsedInference->getBuffer();
     auto perfMetricsLock = ElfBufferLockGuard(perfMetrics.get());
     auto perfMetricsPtr = perfMetrics ? reinterpret_cast<uint64_t*>(perfMetrics->getBuffer().cpu_addr()) : nullptr;
+    auto perfMetricsSize = perfMetrics ? static_cast<uint64_t>(perfMetrics->getBuffer().size()) : uint64_t{0};
     archSpecificHpi->setHostParsedInference(parsedInferenceBuffer, entriesVct, metadata->mResourceRequirements,
-                                            perfMetricsPtr, miVersion);
+                                            perfMetricsPtr, miVersion, perfMetricsSize);
 
     return *this;
 }
