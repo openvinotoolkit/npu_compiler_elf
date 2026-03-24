@@ -47,6 +47,8 @@ elf::platform::ArchKind archFromDeviceId(uint32_t deviceId) {
         return elf::platform::ArchKind::VPUX40XX;
     case 0xB03E:  // PantherLake Mobile (PTL-P)
         return elf::platform::ArchKind::VPUX501X;
+    case 0xFD3E:  // Wildcatlake (WCL)
+        return elf::platform::ArchKind::VPUX502X;
     default:
         VPUX_ELF_LOG(LogLevel::LOG_ERROR, "Unrecognized device ID");
         return elf::platform::ArchKind::UNKNOWN;
@@ -71,6 +73,7 @@ std::unique_ptr<HostParsedInferenceCommon> getArchSpecificHPI(elf::platform::Arc
 #endif
 #if (defined(CONFIG_TARGET_SOC_5000) || defined(HOST_BUILD))
     case elf::platform::ArchKind::VPUX501X:
+    case elf::platform::ArchKind::VPUX502X:
         archSpecificHPI = std::make_unique<HostParsedInference_5000>(archKind);
         break;
 #endif

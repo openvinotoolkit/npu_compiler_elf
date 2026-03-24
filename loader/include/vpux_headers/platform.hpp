@@ -23,6 +23,7 @@ enum class ArchKind : uint64_t {
     VPUX40XX = 4,
     VPUX50XX = 5,  // To be removed
     VPUX501X = 5,
+    VPUX502X = 5020,
 };
 
 const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitectures();
