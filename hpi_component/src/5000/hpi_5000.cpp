@@ -45,6 +45,7 @@ HostParsedInference_5000::HostParsedInference_5000(elf::platform::ArchKind archK
 elf::Version HostParsedInference_5000::getELFLibABIVersion() const {
     switch (archKind_) {
     case elf::platform::ArchKind::VPUX501X:
+    case elf::platform::ArchKind::VPUX502X:
         return {VPUX50XX_VERSION_MAJOR, VPUX50XX_VERSION_MINOR, VPUX50XX_VERSION_PATCH};
     default:
         break;
