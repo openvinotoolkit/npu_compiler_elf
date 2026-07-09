@@ -224,11 +224,10 @@ public:
             VPUX_ELF_THROW_WHEN(currentDescriptor.mDataOffset > size, RuntimeError, "data offset out of bounds");
             VPUX_ELF_THROW_WHEN(currentDescriptor.mElementSize == 0 && currentDescriptor.mElementCount != 0,
                                 RuntimeError, "element is out of bound");
-            VPUX_ELF_THROW_WHEN(
-                    currentDescriptor.mElementSize != 0 &&
-                            currentDescriptor.mElementCount >
-                                    (size - currentDescriptor.mDataOffset) / currentDescriptor.mElementSize,
-                    RuntimeError, "element is out of bound");
+            VPUX_ELF_THROW_WHEN(currentDescriptor.mElementSize != 0 &&
+                                        currentDescriptor.mElementCount >
+                                                (size - currentDescriptor.mDataOffset) / currentDescriptor.mElementSize,
+                                RuntimeError, "element is out of bound");
             currentDescriptor = deserializeElement(serialBuffer, currentDescriptor, elem);
         }
     }

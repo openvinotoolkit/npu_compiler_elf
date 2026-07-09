@@ -74,14 +74,14 @@ struct ReaderTestScenario {
 };
 
 // Helper to build a test ELF buffer from file header and section headers
-std::vector<uint8_t> buildTestBuffer(const ELFHeader& fileHeader,
-                                      const std::vector<SectionHeader>& sectionHeaders,
-                                      size_t minSize = 0) {
+std::vector<uint8_t> buildTestBuffer(const ELFHeader& fileHeader, const std::vector<SectionHeader>& sectionHeaders,
+                                     size_t minSize = 0) {
     std::vector<uint8_t> buffer;
     buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(&fileHeader),
                   reinterpret_cast<const uint8_t*>(&fileHeader) + sizeof(fileHeader));
-    buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(sectionHeaders.data()),
-                  reinterpret_cast<const uint8_t*>(sectionHeaders.data()) + sectionHeaders.size() * sizeof(SectionHeader));
+    buffer.insert(
+            buffer.end(), reinterpret_cast<const uint8_t*>(sectionHeaders.data()),
+            reinterpret_cast<const uint8_t*>(sectionHeaders.data()) + sectionHeaders.size() * sizeof(SectionHeader));
     buffer.push_back('\0');
 
     if (buffer.size() < minSize) {

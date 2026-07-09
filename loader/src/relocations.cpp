@@ -6,8 +6,8 @@
 //
 
 #include <array>
-#include <vpux_headers/relocations.hpp>
 #include <vpux_headers/dma_hw_npu4.hpp>
+#include <vpux_headers/relocations.hpp>
 
 namespace elf::relocations {
 

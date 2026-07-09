@@ -103,11 +103,11 @@ const HardCodedSymtabToCluster0 gSymTab;
 
 class SharedScratchBufferManager final : public DummyBufferManager {
 public:
-        elf::DeviceBuffer allocate(const elf::BufferSpecs& buffSpecs) override {
-                auto addr = malloc(buffSpecs.size);
-                const auto vpuAddr = buffSpecs.isSharable() ? 0ull : reinterpret_cast<uint64_t>(addr);
-                return {reinterpret_cast<uint8_t*>(addr), vpuAddr, buffSpecs.size};
-        }
+    elf::DeviceBuffer allocate(const elf::BufferSpecs& buffSpecs) override {
+        auto addr = malloc(buffSpecs.size);
+        const auto vpuAddr = buffSpecs.isSharable() ? 0ull : reinterpret_cast<uint64_t>(addr);
+        return {reinterpret_cast<uint8_t*>(addr), vpuAddr, buffSpecs.size};
+    }
 };
 
 static auto validElfDefault = ActionsSequence{{
@@ -283,39 +283,41 @@ TEST(ELFLoader, NoThrowWhenValidElf) {
 }
 
 TEST(ELFLoader, SharedScratchRelocationAppliedOnScratchUpdate) {
-    auto elf = TestBlob(ActionsSequence{{
-                                AddRawBinarySection::build(
-                                        ".binSection_0",
-                                        AddRawBinarySection::Attributes{{}, {elf::SHT_PROGBITS, AddRawBinarySection::Vector(8)}}),
+    auto elf =
+            TestBlob(ActionsSequence{{
+                             AddRawBinarySection::build(".binSection_0",
+                                                        AddRawBinarySection::Attributes{
+                                                                {},
+                                                                {elf::SHT_PROGBITS, AddRawBinarySection::Vector(8)}}),
 
-                                AddEmptySection::build(
-                                        ".scratchSection_0",
-                                        AddEmptySection::Attributes{{elf::SHF_ALLOC | elf::SHF_WRITE, 8}, {0x100}}),
+                             AddEmptySection::build(
+                                     ".scratchSection_0",
+                                     AddEmptySection::Attributes{{elf::SHF_ALLOC | elf::SHF_WRITE, 8}, {0x100}}),
 
-                                AddSymbolSection::build(
-                                        ".symtab_0", AddSymbolSection::Attributes{},
-                                        ActionsSequence{{
+                             AddSymbolSection::build(
+                                     ".symtab_0", AddSymbolSection::Attributes{},
+                                     ActionsSequence{{
 
-                                                AddSymbol::build("symtab_0_target", AddSymbol::Attributes{STT_SECTION},
-                                                                    AddSymbol::Operands{".binSection_0"}),
+                                             AddSymbol::build("symtab_0_target", AddSymbol::Attributes{STT_SECTION},
+                                                              AddSymbol::Operands{".binSection_0"}),
 
-                                                AddSymbol::build("symtab_0_scratch", AddSymbol::Attributes{STT_SECTION},
-                                                                    AddSymbol::Operands{".scratchSection_0"}),
+                                             AddSymbol::build("symtab_0_scratch", AddSymbol::Attributes{STT_SECTION},
+                                                              AddSymbol::Operands{".scratchSection_0"}),
 
-                                        }}),
+                                     }}),
 
-                                AddRelocationSection::build(
-                                        ".relocSection_0", AddRelocationSection::Attributes{},
-                                        AddRelocationSection::Operands{".symtab_0", ".binSection_0"},
-                                        ActionsSequence{{
+                             AddRelocationSection::build(
+                                     ".relocSection_0", AddRelocationSection::Attributes{},
+                                     AddRelocationSection::Operands{".symtab_0", ".binSection_0"},
+                                     ActionsSequence{{
 
-                                                AddRelocation::build("reloc0", AddRelocation::Attributes{R_VPU_64, 0, 0},
-                                                                        AddRelocation::Operands{"symtab_0_scratch"}),
+                                             AddRelocation::build("reloc0", AddRelocation::Attributes{R_VPU_64, 0, 0},
+                                                                  AddRelocation::Operands{"symtab_0_scratch"}),
 
-                                        }}),
+                                     }}),
 
-                        }})
-                        .getBinary();
+                     }})
+                    .getBinary();
 
     auto accessor = DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
     auto bufferManager = SharedScratchBufferManager();
@@ -352,14 +354,13 @@ TEST(ELFLoader, SharedScratchRelocationAppliedOnScratchUpdate) {
     std::memset(sharedScratchStorage, 0, 0x100);
     const uint64_t newScratchAddr = 0x12345000;
 
-    OV_ASSERT_NO_THROW(loader.updateSharedScratchBuffers(
-            {elf::DeviceBuffer(sharedScratchStorage, newScratchAddr, 0x100)}));
+    OV_ASSERT_NO_THROW(
+            loader.updateSharedScratchBuffers({elf::DeviceBuffer(sharedScratchStorage, newScratchAddr, 0x100)}));
     // Ownership is transferred to loader-managed buffer via resetBuffer().
     sharedScratchStorageOwner.release();
 
     const auto valueAfterUpdate = *reinterpret_cast<const uint64_t*>(targetBuffer.cpu_addr());
     ASSERT_EQ(valueAfterUpdate, newScratchAddr);
-
 }
 
 TEST(ELFLoader, NoThrowForDmaRelocations) {
@@ -558,154 +559,76 @@ TEST(ELFLoader, ThrowForDmaRelocationsWritingOverflow) {
 }
 
 TEST(ELFLoader, ThrowForDmaRelocationsWhenIoIndexOutOfBounds) {
-        auto elf = TestBlob(validElfWithDmaRelocations).getBinary();
-
-        auto accessorBeforeTamper =
-                        DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
-        auto reader = elf::Reader<elf::ELF_Bitness::Elf64>(&accessorBeforeTamper);
-
-        size_t dmaSymSectionIdx = 0;
-        bool dmaSymSectionFound = false;
-        for (size_t secIdx = 0; secIdx < reader.getSectionsNum(); ++secIdx) {
-                if (reader.getSection(secIdx).getHeader()->sh_type == elf::VPU_SHT_DMA_SYMBOLS) {
-                        dmaSymSectionIdx = secIdx;
-                        dmaSymSectionFound = true;
-                        break;
-                }
-        }
-        ASSERT_TRUE(dmaSymSectionFound);
-
-        auto dmaSymSectionHdr = reader.getSection(dmaSymSectionIdx).getHeader();
-        ASSERT_GT(dmaSymSectionHdr->sh_size / dmaSymSectionHdr->sh_entsize, 0);
-
-        auto* dmaSymbols = reinterpret_cast<elf::DmaSymbolEntry*>(elf.data() + dmaSymSectionHdr->sh_offset);
-        // Provide only one IO buffer below and force ioIndex to 1 to hit the upper bound exactly.
-        dmaSymbols[0].ioIndex = 1;
-
-        auto accessorAfterTamper =
-                        DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
-        auto bufferManager = DummyBufferManager();
-        auto loader = VPUXLoader(&accessorAfterTamper, &bufferManager);
-
-        OV_ASSERT_NO_THROW(loader.load(gSymTab.symTab(), false, {}));
-
-        uint8_t data = 0;
-        elf::DeviceBuffer input(&data, 0xB, 0xB);
-        std::vector<elf::DeviceBuffer> inputs{input};
-
-        ASSERT_THROW(loader.applyJitRelocations(inputs, inputs, inputs), RelocError);
-}
-
-TEST(ELFLoader, ThrowWhenRelocationSymbolIndexEqualsDeclaredSymtabEntries) {
-    auto elf = TestBlob(ActionsSequence{{
-
-                                AddDummyBinarySection::build(
-                                        ".binSection_0",
-                                        AddDummyBinarySection::Attributes{{}, {elf::SHT_PROGBITS, std::vector<DummyBinObject>(8)}}),
-
-                                AddSymbolSection::build(".symtab_0", AddSymbolSection::Attributes{},
-                                                        ActionsSequence{{
-
-                                                                AddSymbol::build("symtab_0_sym0",
-                                                                                 AddSymbol::Attributes{STT_SECTION},
-                                                                                 AddSymbol::Operands{".binSection_0"}),
-
-                                                                AddSymbol::build("symtab_0_sym1",
-                                                                                 AddSymbol::Attributes{STT_SECTION},
-                                                                                 AddSymbol::Operands{".binSection_0"}),
-                                                        }}),
-
-                                AddRelocationSection::build(
-                                        ".relocSection_0", AddRelocationSection::Attributes{},
-                                        AddRelocationSection::Operands{".symtab_0", ".binSection_0"},
-                                        ActionsSequence{{
-
-                                                AddRelocation::build("reloc0", AddRelocation::Attributes{R_VPU_64, 0, 0},
-                                                                     AddRelocation::Operands{"symtab_0_sym1"}),
-
-                                        }}),
-
-                        }})
-                       .getBinary();
+    auto elf = TestBlob(validElfWithDmaRelocations).getBinary();
 
     auto accessorBeforeTamper =
             DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
     auto reader = elf::Reader<elf::ELF_Bitness::Elf64>(&accessorBeforeTamper);
 
-        size_t relocationSectionIdx = 0;
-        bool relocationSectionFound = false;
+    size_t dmaSymSectionIdx = 0;
+    bool dmaSymSectionFound = false;
     for (size_t secIdx = 0; secIdx < reader.getSectionsNum(); ++secIdx) {
-        if (reader.getSection(secIdx).getHeader()->sh_type == elf::SHT_RELA) {
-            relocationSectionIdx = secIdx;
-                        relocationSectionFound = true;
+        if (reader.getSection(secIdx).getHeader()->sh_type == elf::VPU_SHT_DMA_SYMBOLS) {
+            dmaSymSectionIdx = secIdx;
+            dmaSymSectionFound = true;
             break;
         }
     }
-        ASSERT_TRUE(relocationSectionFound);
+    ASSERT_TRUE(dmaSymSectionFound);
 
-    auto relocationSectionHeader = reader.getSection(relocationSectionIdx).getHeader();
-    const auto symtabSectionIdx = static_cast<size_t>(relocationSectionHeader->sh_link);
-        ASSERT_LT(symtabSectionIdx, reader.getSectionsNum());
-    auto symtabSectionHeader = reader.getSection(symtabSectionIdx).getHeader();
+    auto dmaSymSectionHdr = reader.getSection(dmaSymSectionIdx).getHeader();
+    ASSERT_GT(dmaSymSectionHdr->sh_size / dmaSymSectionHdr->sh_entsize, 0);
 
-    const auto originalSymtabEntries = symtabSectionHeader->sh_size / symtabSectionHeader->sh_entsize;
-    ASSERT_GT(originalSymtabEntries, 1);
-
-    // Shrink declared symtab size by one so the last symbol index becomes out-of-bounds
-    // while still fitting in the original relocation payload.
-    auto* sectionHeaders = reinterpret_cast<elf::SectionHeader*>(elf.data() + reader.getHeader()->e_shoff);
-    sectionHeaders[symtabSectionIdx].sh_size = (originalSymtabEntries - 1) * symtabSectionHeader->sh_entsize;
-
-    auto* relocs =
-            reinterpret_cast<elf::RelocationAEntry*>(elf.data() + relocationSectionHeader->sh_offset);
-    ASSERT_GT(relocationSectionHeader->sh_size / relocationSectionHeader->sh_entsize, 0);
-    const auto relocationType = elf::elf64RType(relocs[0].r_info);
-    // Set relSymIdx to exactly the new declared entry count to exercise the off-by-one boundary.
-    relocs[0].r_info = elf::elf64RInfo(static_cast<elf::Elf_Word>(originalSymtabEntries - 1), relocationType);
+    auto* dmaSymbols = reinterpret_cast<elf::DmaSymbolEntry*>(elf.data() + dmaSymSectionHdr->sh_offset);
+    // Provide only one IO buffer below and force ioIndex to 1 to hit the upper bound exactly.
+    dmaSymbols[0].ioIndex = 1;
 
     auto accessorAfterTamper =
             DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
     auto bufferManager = DummyBufferManager();
+    auto loader = VPUXLoader(&accessorAfterTamper, &bufferManager);
 
-    // Loader must reject relSymIdx == declared_symtab_entries.
-    ASSERT_THROW(VPUXLoader(&accessorAfterTamper, &bufferManager).load({}, false, {}, false), RelocError);
+    OV_ASSERT_NO_THROW(loader.load(gSymTab.symTab(), false, {}));
+
+    uint8_t data = 0;
+    elf::DeviceBuffer input(&data, 0xB, 0xB);
+    std::vector<elf::DeviceBuffer> inputs{input};
+
+    ASSERT_THROW(loader.applyJitRelocations(inputs, inputs, inputs), RelocError);
 }
 
-TEST(ELFLoader, ThrowWhenScratchRelocationSymbolIndexEqualsDeclaredSymtabEntries) {
-    auto elf = TestBlob(ActionsSequence{{
+TEST(ELFLoader, ThrowWhenRelocationSymbolIndexEqualsDeclaredSymtabEntries) {
+    auto elf =
+            TestBlob(ActionsSequence{{
 
-                                AddRawBinarySection::build(
-                                        ".binSection_0",
-                                        AddRawBinarySection::Attributes{{}, {elf::SHT_PROGBITS, AddRawBinarySection::Vector(8)}}),
+                             AddDummyBinarySection::build(".binSection_0",
+                                                          AddDummyBinarySection::Attributes{
+                                                                  {},
+                                                                  {elf::SHT_PROGBITS, std::vector<DummyBinObject>(8)}}),
 
-                                AddEmptySection::build(
-                                        ".scratchSection_0",
-                                        AddEmptySection::Attributes{{elf::SHF_ALLOC | elf::SHF_WRITE, 8}, {0x100}}),
+                             AddSymbolSection::build(
+                                     ".symtab_0", AddSymbolSection::Attributes{},
+                                     ActionsSequence{{
 
-                                AddSymbolSection::build(
-                                        ".symtab_0", AddSymbolSection::Attributes{},
-                                        ActionsSequence{{
+                                             AddSymbol::build("symtab_0_sym0", AddSymbol::Attributes{STT_SECTION},
+                                                              AddSymbol::Operands{".binSection_0"}),
 
-                                                AddSymbol::build("symtab_0_target", AddSymbol::Attributes{STT_SECTION},
-                                                                 AddSymbol::Operands{".binSection_0"}),
+                                             AddSymbol::build("symtab_0_sym1", AddSymbol::Attributes{STT_SECTION},
+                                                              AddSymbol::Operands{".binSection_0"}),
+                                     }}),
 
-                                                AddSymbol::build("symtab_0_scratch", AddSymbol::Attributes{STT_SECTION},
-                                                                 AddSymbol::Operands{".scratchSection_0"}),
+                             AddRelocationSection::build(
+                                     ".relocSection_0", AddRelocationSection::Attributes{},
+                                     AddRelocationSection::Operands{".symtab_0", ".binSection_0"},
+                                     ActionsSequence{{
 
-                                        }}),
+                                             AddRelocation::build("reloc0", AddRelocation::Attributes{R_VPU_64, 0, 0},
+                                                                  AddRelocation::Operands{"symtab_0_sym1"}),
 
-                                AddRelocationSection::build(
-                                        ".relocSection_0", AddRelocationSection::Attributes{},
-                                        AddRelocationSection::Operands{".symtab_0", ".binSection_0"},
-                                        ActionsSequence{{
+                                     }}),
 
-                                                AddRelocation::build("reloc0", AddRelocation::Attributes{R_VPU_64, 0, 0},
-                                                                     AddRelocation::Operands{"symtab_0_scratch"}),
-
-                                        }}),
-
-                        }})
-                       .getBinary();
+                     }})
+                    .getBinary();
 
     auto accessorBeforeTamper =
             DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
@@ -730,15 +653,95 @@ TEST(ELFLoader, ThrowWhenScratchRelocationSymbolIndexEqualsDeclaredSymtabEntries
     const auto originalSymtabEntries = symtabSectionHeader->sh_size / symtabSectionHeader->sh_entsize;
     ASSERT_GT(originalSymtabEntries, 1);
 
-        // Shrink declared symtab size by one so relocation symbol index lands exactly
-        // on the invalid upper bound.
+    // Shrink declared symtab size by one so the last symbol index becomes out-of-bounds
+    // while still fitting in the original relocation payload.
     auto* sectionHeaders = reinterpret_cast<elf::SectionHeader*>(elf.data() + reader.getHeader()->e_shoff);
     sectionHeaders[symtabSectionIdx].sh_size = (originalSymtabEntries - 1) * symtabSectionHeader->sh_entsize;
 
     auto* relocs = reinterpret_cast<elf::RelocationAEntry*>(elf.data() + relocationSectionHeader->sh_offset);
     ASSERT_GT(relocationSectionHeader->sh_size / relocationSectionHeader->sh_entsize, 0);
     const auto relocationType = elf::elf64RType(relocs[0].r_info);
-        // relSymIdx equals declared symtab entries; vulnerable code would allow this.
+    // Set relSymIdx to exactly the new declared entry count to exercise the off-by-one boundary.
+    relocs[0].r_info = elf::elf64RInfo(static_cast<elf::Elf_Word>(originalSymtabEntries - 1), relocationType);
+
+    auto accessorAfterTamper =
+            DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
+    auto bufferManager = DummyBufferManager();
+
+    // Loader must reject relSymIdx == declared_symtab_entries.
+    ASSERT_THROW(VPUXLoader(&accessorAfterTamper, &bufferManager).load({}, false, {}, false), RelocError);
+}
+
+TEST(ELFLoader, ThrowWhenScratchRelocationSymbolIndexEqualsDeclaredSymtabEntries) {
+    auto elf =
+            TestBlob(ActionsSequence{{
+
+                             AddRawBinarySection::build(".binSection_0",
+                                                        AddRawBinarySection::Attributes{
+                                                                {},
+                                                                {elf::SHT_PROGBITS, AddRawBinarySection::Vector(8)}}),
+
+                             AddEmptySection::build(
+                                     ".scratchSection_0",
+                                     AddEmptySection::Attributes{{elf::SHF_ALLOC | elf::SHF_WRITE, 8}, {0x100}}),
+
+                             AddSymbolSection::build(
+                                     ".symtab_0", AddSymbolSection::Attributes{},
+                                     ActionsSequence{{
+
+                                             AddSymbol::build("symtab_0_target", AddSymbol::Attributes{STT_SECTION},
+                                                              AddSymbol::Operands{".binSection_0"}),
+
+                                             AddSymbol::build("symtab_0_scratch", AddSymbol::Attributes{STT_SECTION},
+                                                              AddSymbol::Operands{".scratchSection_0"}),
+
+                                     }}),
+
+                             AddRelocationSection::build(
+                                     ".relocSection_0", AddRelocationSection::Attributes{},
+                                     AddRelocationSection::Operands{".symtab_0", ".binSection_0"},
+                                     ActionsSequence{{
+
+                                             AddRelocation::build("reloc0", AddRelocation::Attributes{R_VPU_64, 0, 0},
+                                                                  AddRelocation::Operands{"symtab_0_scratch"}),
+
+                                     }}),
+
+                     }})
+                    .getBinary();
+
+    auto accessorBeforeTamper =
+            DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
+    auto reader = elf::Reader<elf::ELF_Bitness::Elf64>(&accessorBeforeTamper);
+
+    size_t relocationSectionIdx = 0;
+    bool relocationSectionFound = false;
+    for (size_t secIdx = 0; secIdx < reader.getSectionsNum(); ++secIdx) {
+        if (reader.getSection(secIdx).getHeader()->sh_type == elf::SHT_RELA) {
+            relocationSectionIdx = secIdx;
+            relocationSectionFound = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(relocationSectionFound);
+
+    auto relocationSectionHeader = reader.getSection(relocationSectionIdx).getHeader();
+    const auto symtabSectionIdx = static_cast<size_t>(relocationSectionHeader->sh_link);
+    ASSERT_LT(symtabSectionIdx, reader.getSectionsNum());
+    auto symtabSectionHeader = reader.getSection(symtabSectionIdx).getHeader();
+
+    const auto originalSymtabEntries = symtabSectionHeader->sh_size / symtabSectionHeader->sh_entsize;
+    ASSERT_GT(originalSymtabEntries, 1);
+
+    // Shrink declared symtab size by one so relocation symbol index lands exactly
+    // on the invalid upper bound.
+    auto* sectionHeaders = reinterpret_cast<elf::SectionHeader*>(elf.data() + reader.getHeader()->e_shoff);
+    sectionHeaders[symtabSectionIdx].sh_size = (originalSymtabEntries - 1) * symtabSectionHeader->sh_entsize;
+
+    auto* relocs = reinterpret_cast<elf::RelocationAEntry*>(elf.data() + relocationSectionHeader->sh_offset);
+    ASSERT_GT(relocationSectionHeader->sh_size / relocationSectionHeader->sh_entsize, 0);
+    const auto relocationType = elf::elf64RType(relocs[0].r_info);
+    // relSymIdx equals declared symtab entries; vulnerable code would allow this.
     relocs[0].r_info = elf::elf64RInfo(static_cast<elf::Elf_Word>(originalSymtabEntries - 1), relocationType);
 
     auto accessor = DDRAccessManager<elf::DDRAlwaysEmplace>(reinterpret_cast<const uint8_t*>(elf.data()), elf.size());
@@ -746,9 +749,9 @@ TEST(ELFLoader, ThrowWhenScratchRelocationSymbolIndexEqualsDeclaredSymtabEntries
     auto loader = VPUXLoader(&accessor, &bufferManager);
     loader.setInferencesMayBeRunInParallel(false);
 
-        // cacheScratchRelocations is triggered during load for shared scratch flows.
-        // Fixed code must reject relSymIdx == declared_symtab_entries here.
-        ASSERT_THROW(loader.load(gSymTab.symTab(), false, {}, false), RelocError);
+    // cacheScratchRelocations is triggered during load for shared scratch flows.
+    // Fixed code must reject relSymIdx == declared_symtab_entries here.
+    ASSERT_THROW(loader.load(gSymTab.symTab(), false, {}, false), RelocError);
 }
 
 using RelocationTestParams = std::tuple<ActionsSequence, ActionsSequence>;

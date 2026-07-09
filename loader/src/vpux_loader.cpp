@@ -204,8 +204,7 @@ const auto VPU_DISP28_MULTICAST_OFFSET_Relocation = [](void* targetAddr, const e
     to_dpu_multicast(static_cast<uint32_t>(symVal + addend), offs[0], offs[1], offs[2]);
 
     const auto index = *addr >> 4;
-    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError,
-                      "Multicast offset index out of range");
+    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError, "Multicast offset index out of range");
     *addr &= 0xf;
     *addr |= offs[index] << 4;
 };
@@ -222,8 +221,7 @@ const auto VPU_DISP4_MULTICAST_OFFSET_Relocation = [](void* targetAddr, const el
     to_dpu_multicast(static_cast<uint32_t>(symVal + addend), offs[0], offs[1], offs[2]);
 
     const auto index = *addr & 0xf;
-    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError,
-                      "Multicast offset index out of range");
+    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError, "Multicast offset index out of range");
     *addr &= 0xfffffff0;
     *addr |= offs[index] != 0;
 };

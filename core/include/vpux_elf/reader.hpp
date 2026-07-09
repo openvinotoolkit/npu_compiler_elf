@@ -71,10 +71,10 @@ public:
         std::shared_ptr<ManagedBuffer> getDataBuffer(bool cpuOnlyAccess = false) const {
             std::shared_ptr<ManagedBuffer> buffer = nullptr;
 
-        // SHT_NOBITS - sections can have a size greater than the file
-        // which will cause offset out of bounds.
-        // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
-        // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
+            // SHT_NOBITS - sections can have a size greater than the file
+            // which will cause offset out of bounds.
+            // VPU_SHT_CMX_METADATA - does not contain data in the binary file, so avoid reading
+            // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
             if (!((mHeader->sh_type == SHT_NOBITS) || (mHeader->sh_type == VPU_SHT_CMX_METADATA) ||
                   mHeader->sh_type == VPU_SHT_CMX_WORKSPACE)) {
                 buffer = mAccessManager->readInternal(
@@ -135,7 +135,7 @@ public:
                                   "Section name table must contain at least a null terminator");
 
             VPUX_ELF_THROW_UNLESS(secNamesOffset <= mAccessManager->getSize() &&
-                                      secNameSize <= mAccessManager->getSize() - secNamesOffset,
+                                          secNameSize <= mAccessManager->getSize() - secNamesOffset,
                                   HeaderError, "Section name size exceeds buffer size");
 
             mSectionNames.resize(secNameSize);
@@ -233,8 +233,7 @@ private:
             const auto nextOffset = static_cast<size_t>(mSectionHeaders[nextIdx].sh_offset);
 
             // If current section's end is beyond next section's start, they overlap
-            VPUX_ELF_THROW_UNLESS(endCurrent <= nextOffset, RangeError,
-                                  "Section overlaps next section");
+            VPUX_ELF_THROW_UNLESS(endCurrent <= nextOffset, RangeError, "Section overlaps next section");
         }
     }
 };

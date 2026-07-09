@@ -163,8 +163,7 @@ public:
     }
 
     std::unique_ptr<ManagedBuffer> readInternal(size_t offset, const BufferSpecs& specs) override {
-        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError,
-                            "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError, "Read request out of bounds");
 
         auto targetAddr = const_cast<uint8_t*>(mBlob) + offset;
 
@@ -192,8 +191,7 @@ public:
     }
 
     std::unique_ptr<ManagedBuffer> readInternal(size_t offset, const BufferSpecs& specs) override {
-        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError,
-                            "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError, "Read request out of bounds");
 
         return BufferFactoryBase::getEmplacedBufferStatic(const_cast<uint8_t*>(mBlob) + offset, specs);
     }
@@ -219,8 +217,7 @@ public:
     }
 
     std::unique_ptr<ManagedBuffer> readInternal(size_t offset, const BufferSpecs& specs) override {
-        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError,
-                            "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError, "Read request out of bounds");
         auto buffer = mBufferFactory->getAllocatedBuffer(specs);
         mFileStream.seekg(offset, mFileStream.beg);
         auto lock = ElfBufferLockGuard(buffer.get());
