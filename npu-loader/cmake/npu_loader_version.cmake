@@ -1,0 +1,29 @@
+#
+# Copyright (C) 2026 Intel Corporation.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+execute_process(
+    COMMAND
+        git rev-parse HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE CURRENT_NPU_LOADER_SHA
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE ERROR_CODE
+)
+
+if (NOT ${ERROR_CODE} EQUAL 0)
+    message(FATAL_ERROR "Failed to retrieve version")
+endif()
+
+set(LAST_NPU_LOADER_SHA "")
+if (EXISTS ${NPU_LOADER_SHA_CACHE})
+    file(READ ${NPU_LOADER_SHA_CACHE} LAST_NPU_LOADER_SHA)
+endif()
+
+if ("${CURRENT_NPU_LOADER_SHA}" STREQUAL "${LAST_NPU_LOADER_SHA}")
+    return()
+endif()
+
+file(WRITE ${NPU_LOADER_SHA_CACHE} ${CURRENT_NPU_LOADER_SHA})
+configure_file(${NPU_LOADER_SHA_PATTERN} ${NPU_LOADER_VERSION_FILE} @ONLY)

@@ -8,6 +8,9 @@ cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 include( ./cmake/compiler_linker_options.cmake )
 
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(LIB_NAME npu_elf)
 
 project(${LIB_NAME})
@@ -23,12 +26,8 @@ endif()
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
 list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/example/.*")
 list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/tests/.*")
-
-if(ENABLE_ELF_TESTS)
-    # Exclude HPI component from building library when tests are enabled.
-    # E#156226
-    list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/hpi_component/*.*")
-endif()
+list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/npu-loader/.*")
+list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/allocator_utils/.*")
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADERS} ${SOURCES})
 
@@ -101,11 +100,42 @@ target_compile_definitions(${LIB_NAME} PRIVATE $<$<NOT:$<CONFIG:Release>>:NRELEA
 
 # Local copy of nnrt headers should only be used by testing infrastructure
 # Not to be used in production environment!
-if(ENABLE_LOCAL_NNRT_API OR ENABLE_ELF_TESTS)
-    target_include_directories(${LIB_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/3rdparty/nnrt_api/")
+if(ENABLE_LOCAL_NNRT_API OR ENABLE_ELF_TESTS OR ENABLE_NPU_LOADER)
+    set(NNRT_API_HEADER "${PROJECT_SOURCE_DIR}/3rdparty/nnrt_api/api/vpu_nnrt_api.h")
+    if(NOT EXISTS "${NNRT_API_HEADER}")
+        find_program(PATCH_EXECUTABLE patch)
+        if(NOT PATCH_EXECUTABLE)
+            message(FATAL_ERROR "ENABLE_ELF_TESTS requires 'patch' utility to restore 3rdparty/nnrt_api")
+        endif()
+
+        message(STATUS "ENABLE_ELF_TESTS is ON: restoring 3rdparty/nnrt_api from cmake/patches/nnrt_api.patch")
+        execute_process(
+            COMMAND "${PATCH_EXECUTABLE}" --forward -p1 -i "${PROJECT_SOURCE_DIR}/cmake/patches/nnrt_api.patch"
+            WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+            RESULT_VARIABLE NNRT_PATCH_RESULT
+            OUTPUT_VARIABLE NNRT_PATCH_OUTPUT
+            ERROR_VARIABLE NNRT_PATCH_ERROR)
+
+        target_include_directories(${LIB_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/3rdparty/nnrt_api/")
+
+        # Ensure `make clean` also drops restored test-only headers.
+        set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
+        "${PROJECT_SOURCE_DIR}/3rdparty")
+
+        if(NOT NNRT_PATCH_RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to apply nnrt_api patch. patch stdout: ${NNRT_PATCH_OUTPUT}; patch stderr: ${NNRT_PATCH_ERROR}")
+        endif()
+    endif()
+endif()
+
+if(ENABLE_NPU_LOADER)
+    include( ./cmake/gflags.cmake)
+    add_subdirectory(./npu-loader)
 endif()
 
 if(ENABLE_ELF_TESTS)
     include( ./cmake/gtest.cmake)
+
+    add_subdirectory(./allocator_utils)
     add_subdirectory(./tests)
 endif()

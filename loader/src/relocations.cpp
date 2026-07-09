@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2025 Intel Corporation
+// Copyright (C) 2025-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -7,11 +7,7 @@
 
 #include <array>
 #include <vpux_headers/relocations.hpp>
-
-// Included for DmaDescriptor definition. Even though
-// it is 40xx specific newer architectures didn't make
-// incompatible changes so the definition can be reused.
-#include <api/vpu_dma_hw_40xx.h>
+#include <vpux_headers/dma_hw_npu4.hpp>
 
 namespace elf::relocations {
 
@@ -68,7 +64,7 @@ uint64_t calculateDmaAddress(uint64_t address, const uint32_t (&tileOffsets)[DMA
 }
 
 void dmaTaskInputRelocation(void* targetAddr, const DmaSymbolEntry& sym, const Elf_Sxword) {
-    auto dmaTask = reinterpret_cast<DmaDescriptor*>(targetAddr);
+    auto dmaTask = reinterpret_cast<dma_npu4::DmaDescriptor*>(targetAddr);
 
     std::array<uint32_t, DMA_SYMBOL_MAX_TENSOR_DIMENSIONS> reducedDmaShapes{1, 1, 1, 1, 1, 1};
     std::array<uint32_t, DMA_SYMBOL_MAX_TENSOR_DIMENSIONS> reducedDmaStrides{0, 0, 0, 0, 0, 0};
@@ -91,7 +87,7 @@ void dmaTaskInputRelocation(void* targetAddr, const DmaSymbolEntry& sym, const E
 }
 
 void dmaTaskOutputRelocation(void* targetAddr, const DmaSymbolEntry& sym, const Elf_Sxword) {
-    auto dmaTask = reinterpret_cast<DmaDescriptor*>(targetAddr);
+    auto dmaTask = reinterpret_cast<dma_npu4::DmaDescriptor*>(targetAddr);
 
     std::array<uint32_t, DMA_SYMBOL_MAX_TENSOR_DIMENSIONS> reducedDmaShapes{1, 1, 1, 1, 1, 1};
     std::array<uint32_t, DMA_SYMBOL_MAX_TENSOR_DIMENSIONS> reducedDmaStrides{0, 0, 0, 0, 0, 0};

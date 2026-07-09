@@ -5,6 +5,7 @@
 //
 
 // clang-format off
+#include <cstdint>
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_elf/utils/log.hpp>
 #include <vpux_elf/utils/error.hpp>
@@ -18,11 +19,18 @@
 #include <array>
 #include <cstring>
 
-#include <api/vpu_nnrt_api_40xx.h>
-#include <api/vpu_cmx_info_40xx.h>
-#include <api/vpu_pwrmgr_api.h>
+#include <api/vpu_nnrt_api.h>
 
 // clang-format on
+
+namespace { // NNRT api defines. Must not be changed. Required for LNL PV
+            // compatibility.
+constexpr uint32_t VPU_METADATA_STORAGE_ADDR = 0x40203c00;
+constexpr uint32_t VPU_WORKSPACE_ADDR = 0x40218000;
+constexpr uint32_t VPU_WORKSPACE_SIZE_IN_BYTES = 1440 * 1024;
+constexpr uint32_t VPU_MAX_TILES = 6;
+} // namespace
+
 
 namespace elf {
 
@@ -47,8 +55,14 @@ namespace {
 
 constexpr uint32_t VPUX40XX_VERSION_MAJOR = 1;
 constexpr uint32_t VPUX40XX_VERSION_MINOR = 3;
-constexpr uint32_t VPUX40XX_VERSION_PATCH = 0;
+constexpr uint32_t VPUX40XX_VERSION_PATCH = 2;
 
+// 1.3.2
+// - Fix header offset overflow in Reader when section table offset is close to file size limit
+//
+// 1.3.1
+// - Fix security vulnerabilities
+//
 // 1.3.0
 // - Add support for DMA symbol section for dynamic strides
 //
@@ -126,7 +140,7 @@ elf::Version HostParsedInference_4000_Base::getStaticMIVersion() const {
 }
 
 uint32_t HostParsedInference_4000_Base::getArchTilesCount() const {
-    return nn_public::VPU_MAX_TILES;
+    return VPU_MAX_TILES;
 }
 
 HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archKind)
@@ -134,14 +148,11 @@ HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archK
     symTab_.reserve(2);
     secTypeContainers_.reserve(2);
     {
-        const auto metadataStart =
-                nn_public::align_storage(alignof(nn_public::VpuDPUInvariant), nn_public::VPU_METADATA_STORAGE_ADDR);
-
         SymbolEntry metadata;
         metadata.st_info = static_cast<unsigned char>(elf64STInfo(elf::STB_GLOBAL, elf::STT_OBJECT));
         metadata.st_other = STV_DEFAULT;
         metadata.st_shndx = 0;
-        metadata.st_value = static_cast<uint64_t>(metadataStart);
+        metadata.st_value = static_cast<uint64_t>(VPU_METADATA_STORAGE_ADDR);
         metadata.st_size = 0;
         metadata.st_name = 0;
 
@@ -154,8 +165,8 @@ HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archK
         cmxWorkspace.st_info = static_cast<unsigned char>(elf64STInfo(elf::STB_GLOBAL, elf::STT_OBJECT));
         cmxWorkspace.st_other = STV_DEFAULT;
         cmxWorkspace.st_shndx = 0;
-        cmxWorkspace.st_value = nn_public::VPU_WORKSPACE_ADDR;
-        cmxWorkspace.st_size = nn_public::VPU_WORKSPACE_SIZE;
+        cmxWorkspace.st_value = VPU_WORKSPACE_ADDR;
+        cmxWorkspace.st_size = VPU_WORKSPACE_SIZE_IN_BYTES;
         cmxWorkspace.st_name = 0;
 
         symTab_.push_back(cmxWorkspace);

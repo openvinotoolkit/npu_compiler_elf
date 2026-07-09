@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2025 Intel Corporation
+// Copyright (C) 2025-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -17,14 +17,14 @@ class DmaSymbolSection;
 
 class DmaSymbol {
 public:
-    size_t getIndex();
+    size_t getIndex() const;
 
-    void setDmaSymbol(DmaSymbolEntry& dmaSym);
+    void setDmaSymbol(const DmaSymbolEntry& dmaSym);
 
 private:
     void setIndex(size_t index);
 
-    DmaSymbolEntry getDmaSymbol();
+    DmaSymbolEntry getDmaSymbol() const;
 
     size_t m_symbol_index = 0;
     DmaSymbolEntry m_dmaSymbol;

@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2024-2025 Intel Corporation
+// Copyright (C) 2024-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -36,8 +36,10 @@ public:
     uint32_t getMinor() const;
     uint32_t getPatch() const;
 
+    std::string toString() const;
+
     friend std::ostream& operator<< (std::ostream& stream, const Version& version) {
-        stream << version.major << "." << version.minor << "." << version.patch;
+        stream << version.toString();
         return stream;
     }
 
@@ -53,7 +55,7 @@ public:
      * Helper static function to check the compatibility between different versions
      *
      * @note
-     * Although it has no return, the function THROWS for incompatibilies and warns for unwanted differences.
+     * Although it has no return, the function THROWS for incompatibilities and warns for unwanted differences.
      * Behaviour:
      *  - if major versions differ => incompatibility => VersioningError is thrown
      *  - if expected minor version < received minor version => incompatibility => VersioningError is thrown

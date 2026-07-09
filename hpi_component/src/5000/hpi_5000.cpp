@@ -15,8 +15,14 @@ namespace {
 
 constexpr uint32_t VPUX50XX_VERSION_MAJOR = 2;
 constexpr uint32_t VPUX50XX_VERSION_MINOR = 2;
-constexpr uint32_t VPUX50XX_VERSION_PATCH = 0;
+constexpr uint32_t VPUX50XX_VERSION_PATCH = 2;
 
+// 2.2.2
+// - Fix header offset overflow in Reader when section table offset is close to file size limit
+//
+// 2.2.1
+// - Fix security vulnerabilities
+//
 // 2.2.0
 // - Enable direct MMI support
 //
@@ -34,6 +40,9 @@ constexpr uint32_t VPUX50XX_VERSION_PATCH = 0;
 // - Add support for elf::DType::F8E8M0
 // - Rename elf::DType::FP8 -> elf::DType::F8EM5M2
 // - Rename elf::DType::HF8 -> elf::DType::F8E4M3FN
+
+
+
 
 }  // namespace
 

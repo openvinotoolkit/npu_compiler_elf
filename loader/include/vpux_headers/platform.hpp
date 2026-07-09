@@ -21,7 +21,7 @@ enum class ArchKind : uint64_t {
     VPUX30XX = 1,
     VPUX37XX = 3,
     VPUX40XX = 4,
-    VPUX50XX = 5,  // To be removed
+    VPUX50XX = 5, // E#192965
     VPUX501X = 5,
     VPUX502X = 5020,
 };
@@ -29,7 +29,7 @@ enum class ArchKind : uint64_t {
 const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitectures();
 elf::platform::ArchKind mapArchStringToArchKind(const std::string& archName);
 std::string stringifyArchKind(const elf::platform::ArchKind& arch);
-uint8_t getHardwareTileCount(const elf::platform::ArchKind& arch);
+uint64_t getHardwareTileCount(const elf::platform::ArchKind& arch);
 
 struct PlatformInfo {
     ArchKind mArchKind;

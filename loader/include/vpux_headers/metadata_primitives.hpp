@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #if defined(_MSC_VER)
 #define VPUX_ALIGNED_STRUCT(alignment) __declspec(align(alignment))
@@ -133,6 +134,18 @@ struct VPUX_ALIGNED_STRUCT(8) Identification {
     // If no name is provided by the compiler, a default name is used.
     // The driver expects an identical string as initially provided to the compiler.
     BlobName blob_name;
+
+    bool operator==(const Identification& rhs) const {
+        if (this != &rhs) {
+            if (memcmp(this, &rhs, sizeof(*this))) {
+                return false;
+            }
+        }
+        return true;
+    }
+    bool operator!=(const Identification& rhs) const {
+        return (!(*this == rhs));
+    }
 };
 
 constexpr uint8_t TENSOR_REF_FLAG_DYNAMIC_STRIDES_SUPPORT = 0x1;
@@ -147,6 +160,15 @@ struct VPUX_ALIGNED_STRUCT(8) TensorRef {
     uint32_t strides_size;
     uint8_t flags;
     uint8_t pad1_[3] = {0};
+
+    bool operator==(const TensorRef& rhs) const {
+        if (this != &rhs) {
+            if (memcmp(this, &rhs, sizeof(*this))) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 static_assert(sizeof(TensorRef) == 384, "TensorRef size != 384");
@@ -157,6 +179,18 @@ struct VPUX_ALIGNED_STRUCT(4) PreprocessingInfo {
     PreProcessColorSpace input_format;
     PreProcessColorSpace output_format;
     PreProcessResizeAlgorithm algorithm;
+
+    bool operator==(const PreprocessingInfo& rhs) const {
+        if (this != &rhs) {
+            if (memcmp(this, &rhs, sizeof(*this))) {
+                return false;
+            }
+        }
+        return true;
+    }
+    bool operator!=(const PreprocessingInfo& rhs) const {
+        return (!(*this == rhs));
+    }
 };
 
 static_assert(sizeof(PreprocessingInfo) == 268, "PreprocessingInfo size != 268");
@@ -171,6 +205,18 @@ struct VPUX_ALIGNED_STRUCT(8) OVNode {
     uint32_t shape_size;
     uint32_t tensor_names_count = 0;
     uint8_t pad_[4] = {0};
+
+    bool operator==(const OVNode& rhs) const {
+        if (this != &rhs) {
+            if (memcmp(this, &rhs, sizeof(*this))) {
+                return false;
+            }
+        }
+        return true;
+    }
+    bool operator!=(const OVNode& rhs) const {
+        return (!(*this == rhs));
+    }
 };
 
 static_assert(sizeof(OVNode) == 8784, "OVNode size != 8784");
@@ -180,6 +226,18 @@ struct VPUX_ALIGNED_STRUCT(4) ResourceRequirements {
     uint8_t pad_[6] = {0};
     uint8_t nn_slice_count_;
     uint8_t nn_barriers_;
+
+    bool operator==(const ResourceRequirements& rhs) const {
+        if (this != &rhs) {
+            if (memcmp(this, &rhs, sizeof(*this))) {
+                return false;
+            }
+        }
+        return true;
+    }
+    bool operator!=(const ResourceRequirements& rhs) const {
+        return (!(*this == rhs));
+    }
 };
 
 static_assert(sizeof(ResourceRequirements) == 12, "ResourceRequirements size != 12");

@@ -204,6 +204,8 @@ const auto VPU_DISP28_MULTICAST_OFFSET_Relocation = [](void* targetAddr, const e
     to_dpu_multicast(static_cast<uint32_t>(symVal + addend), offs[0], offs[1], offs[2]);
 
     const auto index = *addr >> 4;
+    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError,
+                      "Multicast offset index out of range");
     *addr &= 0xf;
     *addr |= offs[index] << 4;
 };
@@ -220,6 +222,8 @@ const auto VPU_DISP4_MULTICAST_OFFSET_Relocation = [](void* targetAddr, const el
     to_dpu_multicast(static_cast<uint32_t>(symVal + addend), offs[0], offs[1], offs[2]);
 
     const auto index = *addr & 0xf;
+    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError,
+                      "Multicast offset index out of range");
     *addr &= 0xfffffff0;
     *addr |= offs[index] != 0;
 };
@@ -640,7 +644,7 @@ elf::DeviceBufferContainer::BufferPtr VPUXLoader::getEntry() {
 
         auto hdr = section.getHeader();
         if (hdr->sh_type == elf::SHT_SYMTAB) {
-            auto symTabsSize = section.getEntriesNum();
+            auto symTabsSize = section.getEntriesNum<elf::SymbolEntry>();
             auto symTabs = section.getData<elf::SymbolEntry>();
 
             for (size_t symTabIdx = 0; symTabIdx < symTabsSize; ++symTabIdx) {
@@ -858,7 +862,7 @@ void VPUXLoader::cacheScratchRelocations() {
     for (const auto& relocationSectionIdx : *m_relocationSectionIndexes) {
         const auto& relocSection = m_reader->getSection(relocationSectionIdx);
         auto relocations = relocSection.getData<elf::RelocationAEntry>();
-        auto numRelocs = relocSection.getEntriesNum();
+        auto numRelocs = relocSection.getEntriesNum<elf::RelocationAEntry>();
 
         auto relocSecHdr = relocSection.getHeader();
 
@@ -870,22 +874,25 @@ void VPUXLoader::cacheScratchRelocations() {
             VPUX_ELF_THROW(RelocError, "Rela section with no target section");
         }
 
-        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
+        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx >= m_reader->getSectionsNum(), RelocError,
                             "invalid target section from rela section");
 
         const auto isTargetSharedScratch = std::find(m_sharedScratchBuffers.begin(), m_sharedScratchBuffers.end(),
                                                      targetSectionIdx) != m_sharedScratchBuffers.end();
 
         auto symTabIdx = relocSecHdr->sh_link;
+        VPUX_ELF_THROW_UNLESS((symTabIdx < m_reader->getSectionsNum() || (symTabIdx == VPU_RT_SYMTAB)), RangeError,
+                              "sh_link exceeds the number of entries.");
 
         auto getSymTab = [&](size_t& symTabEntries) -> const SymbolEntry* {
             if (symTabIdx == VPU_RT_SYMTAB) {
+                symTabEntries = m_runtimeSymTabs.size();
                 return m_runtimeSymTabs.data();
             }
 
             const auto& symTabSection = m_reader->getSection(symTabIdx);
             auto symTabSectionHdr = symTabSection.getHeader();
-            symTabEntries = symTabSection.getEntriesNum();
+            symTabEntries = symTabSection.getEntriesNum<elf::SymbolEntry>();
 
             VPUX_ELF_THROW_UNLESS(checkSectionType(symTabSectionHdr, elf::SHT_SYMTAB), RelocError,
                                   "Reloc section pointing to snon-symtab");
@@ -899,6 +906,9 @@ void VPUXLoader::cacheScratchRelocations() {
         for (size_t relocIdx = 0; relocIdx < numRelocs; ++relocIdx) {
             const elf::RelocationAEntry& relocation = relocations[relocIdx];
             auto relSymIdx = elf64RSym(relocation.r_info);
+            VPUX_ELF_THROW_WHEN((relSymIdx >= symTabEntries && symTabIdx != VPU_RT_SYMTAB) ||
+                                        (relSymIdx >= m_runtimeSymTabs.size() && symTabIdx == VPU_RT_SYMTAB),
+                                RelocError, "SymTab index out of bounds!");
             elf::SymbolEntry targetSymbol = symTabs[relSymIdx];
             auto symbolTargetSectionIdx = targetSymbol.st_shndx;
 
@@ -939,7 +949,7 @@ void VPUXLoader::updateSharedBuffers(const std::vector<std::size_t>& relocationS
             return;
         }
         VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Processing buffer for section %zu", targetSectionIdx);
-        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
+        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx >= m_reader->getSectionsNum(), RelocError,
                             "invalid target section from rela section");
 
         // Line below should throw if buffer container does not have by this point a valid buffer associated with the
@@ -1032,7 +1042,7 @@ void VPUXLoader::applyScratchRelocations() {
         const auto& relocSection = m_reader->getSection(relocationSectionIdx);
         auto relocations = relocSection.getData<elf::RelocationAEntry>();
         auto relocSecHdr = relocSection.getHeader();
-        auto numRelocs = relocSection.getEntriesNum();
+        auto numRelocs = relocSection.getEntriesNum<elf::RelocationAEntry>();
 
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRelA section with %zu elements at addr %p", numRelocs, relocations);
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRelA section info, link flags 0x%x %u 0x%llx", relocSecHdr->sh_info,
@@ -1054,7 +1064,7 @@ void VPUXLoader::applyScratchRelocations() {
 
             const auto& symTabSection = m_reader->getSection(symTabIdx);
             auto symTabSectionHdr = symTabSection.getHeader();
-            symTabEntries = symTabSection.getEntriesNum();
+            symTabEntries = symTabSection.getEntriesNum<elf::SymbolEntry>();
 
             VPUX_ELF_THROW_UNLESS(checkSectionType(symTabSectionHdr, elf::SHT_SYMTAB), RelocError,
                                   "Reloc section pointing to snon-symtab");
@@ -1074,7 +1084,7 @@ void VPUXLoader::applyScratchRelocations() {
             return;
         }
 
-        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
+        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx >= m_reader->getSectionsNum(), RelocError,
                             "invalid target section from rela section");
 
         auto targetSection = m_reader->getSection(targetSectionIdx);
@@ -1105,8 +1115,8 @@ void VPUXLoader::applyScratchRelocations() {
             //    - relocations on the symbols defined in the symbol table inside the ELF file.
             // In this case the section has a specific number of entries (need to use the getEntriesNum method of
             // this section)
-            VPUX_ELF_THROW_WHEN((relSymIdx > symTabEntries && symTabIdx != VPU_RT_SYMTAB) ||
-                                        (relSymIdx > m_runtimeSymTabs.size() && symTabIdx == VPU_RT_SYMTAB),
+            VPUX_ELF_THROW_WHEN((relSymIdx >= symTabEntries && symTabIdx != VPU_RT_SYMTAB) ||
+                                        (relSymIdx >= m_runtimeSymTabs.size() && symTabIdx == VPU_RT_SYMTAB),
                                 RelocError, "SymTab index out of bounds!");
 
             auto relType = elf64RType(relocation.r_info);
@@ -1164,7 +1174,7 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
         // Get pointer to first relocation entry in the section
         auto relocations = relocSection.getData<elf::RelocationAEntry>();
         auto relocSecHdr = relocSection.getHeader();
-        auto numRelocs = relocSection.getEntriesNum();
+        auto numRelocs = relocSection.getEntriesNum<elf::RelocationAEntry>();
 
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRelA section with %zu elements at addr %p", numRelocs, relocations);
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRelA section info, link flags 0x%x %u 0x%llx", relocSecHdr->sh_info,
@@ -1186,7 +1196,7 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
 
             const auto& symTabSection = m_reader->getSection(symTabIdx);
             auto symTabSectionHdr = symTabSection.getHeader();
-            symTabEntries = symTabSection.getEntriesNum();
+            symTabEntries = symTabSection.getEntriesNum<elf::SymbolEntry>();
 
             VPUX_ELF_THROW_UNLESS(checkSectionType(symTabSectionHdr, elf::SHT_SYMTAB), RelocError,
                                   "Reloc section pointing to snon-symtab");
@@ -1209,7 +1219,7 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
             return;
         }
 
-        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx > m_reader->getSectionsNum(), RelocError,
+        VPUX_ELF_THROW_WHEN(targetSectionIdx == 0 || targetSectionIdx >= m_reader->getSectionsNum(), RelocError,
                             "Invalid target section from rela section");
 
         const auto isTargetSharedScratch = std::find(m_sharedScratchBuffers.begin(), m_sharedScratchBuffers.end(),
@@ -1252,8 +1262,8 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
             //    - relocations on the symbols defined in the symbol table inside the ELF file.
             // In this case the section has a specific number of entries (need to use the getEntriesNum method of
             // this section)
-            VPUX_ELF_THROW_WHEN((relSymIdx > symTabEntries && symTabIdx != VPU_RT_SYMTAB) ||
-                                        (relSymIdx > m_runtimeSymTabs.size() && symTabIdx == VPU_RT_SYMTAB),
+            VPUX_ELF_THROW_WHEN((relSymIdx >= symTabEntries && symTabIdx != VPU_RT_SYMTAB) ||
+                                        (relSymIdx >= m_runtimeSymTabs.size() && symTabIdx == VPU_RT_SYMTAB),
                                 RelocError, "SymTab index out of bounds!");
 
             auto relType = elf64RType(relocation.r_info);
@@ -1349,9 +1359,9 @@ void VPUXLoader::applyRelocations(SectionType& relocSection, SectionType& symbol
                                   std::vector<DeviceBuffer>& ioBuffers, uint8_t* targetSectionPtr,
                                   size_t targetSectionSize, ResolveSymbolFunc resolveSymbol, RelocateFunc relocate) {
     auto relocations = relocSection.template getData<elf::RelocationAEntry>();
-    auto numRelocs = relocSection.getEntriesNum();
+    auto numRelocs = relocSection.template getEntriesNum<elf::RelocationAEntry>();
     auto symbols = symbolSection.template getData<SymbolType>();
-    auto numSymbols = symbolSection.getEntriesNum();
+    auto numSymbols = symbolSection.template getEntriesNum<SymbolType>();
 
     // apply the actual relocations
     for (size_t relocIdx = 0; relocIdx < numRelocs; ++relocIdx) {
@@ -1490,6 +1500,7 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
         } else if (checkSectionType(symTabSection.getHeader(), elf::VPU_SHT_DMA_SYMBOLS)) {
             auto resolveDmaSymbol = [](elf::DmaSymbolEntry& symbol, uint32_t, std::vector<DeviceBuffer>& ioBuffers) {
                 auto bufferIdx = symbol.ioIndex;
+                VPUX_ELF_THROW_UNLESS(bufferIdx < ioBuffers.size(), RelocError, "Invalid ioIndex for ioBuffers");
                 symbol.address = ioBuffers[bufferIdx].vpu_addr();
                 auto ioBufferUserStrides = ioBuffers[bufferIdx].get_user_stride();
                 if (ioBufferUserStrides.has_value()) {
@@ -1551,20 +1562,23 @@ void VPUXLoader::earlyFetchIO(const elf::Reader<Elf64>::Section& section) {
         VPUX_ELF_THROW_WHEN(m_userInputsDescriptors->size(), SequenceError,
                             "User inputs already read.... potential more than one input section?");
 
-        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu inputs", section.getEntriesNum() - 1);
-        registerUserIO(*m_userInputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
+        const auto entriesNum = section.getEntriesNum<elf::SymbolEntry>();
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu inputs", entriesNum - 1);
+        registerUserIO(*m_userInputsDescriptors, section.getData<elf::SymbolEntry>(), entriesNum);
     } else if (sectionFlags & VPU_SHF_USEROUTPUT) {
         VPUX_ELF_THROW_WHEN(m_userOutputsDescriptors->size(), SequenceError,
                             "User outputs already read.... potential more than one output section?");
 
-        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu outputs", section.getEntriesNum() - 1);
-        registerUserIO(*m_userOutputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
+        const auto entriesNum = section.getEntriesNum<elf::SymbolEntry>();
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu outputs", entriesNum - 1);
+        registerUserIO(*m_userOutputsDescriptors, section.getData<elf::SymbolEntry>(), entriesNum);
     } else if (sectionFlags & VPU_SHF_PROFOUTPUT) {
         VPUX_ELF_THROW_WHEN(m_profOutputsDescriptors->size(), SequenceError,
                             "Profiling outputs already read.... potential more than one output section?");
 
-        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu prof outputs", section.getEntriesNum() - 1);
-        registerUserIO(*m_profOutputsDescriptors, section.getData<elf::SymbolEntry>(), section.getEntriesNum());
+        const auto entriesNum = section.getEntriesNum<elf::SymbolEntry>();
+        VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu prof outputs", entriesNum - 1);
+        registerUserIO(*m_profOutputsDescriptors, section.getData<elf::SymbolEntry>(), entriesNum);
     }
 }
 

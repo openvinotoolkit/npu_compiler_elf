@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2024-2025 Intel Corporation
+// Copyright (C) 2024-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -39,14 +39,20 @@ uint32_t Version::getPatch() const {
     return patch;
 }
 
+std::string Version::toString() const {
+    std::stringstream stringified;
+    stringified << major << '.' << minor << '.' << patch;
+    return stringified.str();
+}
+
 bool Version::checkValidity() const {
-    return isValid && major > 0;
+    return isValid && (major > 0 || minor > 0 || patch > 0);
 }
 
 void Version::checkVersionCompatibility(const Version& expectedVersion, const Version& recievedVersion, const VersionType versionType) {
     auto versionTypeString = elf::stringifyVersionTypeEnum(versionType);
 
-    VPUX_ELF_THROW_UNLESS(expectedVersion.checkValidity() && recievedVersion.checkValidity(), CompatibilityError, "Version major 0 does not constitute a valid version!");
+    VPUX_ELF_THROW_UNLESS(expectedVersion.checkValidity() && recievedVersion.checkValidity(), CompatibilityError, "Version 0.0.0 is invalid");
 
     std::ostringstream logBuffer;
     if (expectedVersion.major != recievedVersion.major || expectedVersion.minor < recievedVersion.minor) {
