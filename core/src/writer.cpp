@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -83,7 +83,8 @@ void Writer::generateELF(uint8_t* data) {
     VPUX_ELF_THROW_WHEN(data == nullptr, ArgsError, "Storage pointer is nullptr");
     VPUX_ELF_THROW_UNLESS(utils::checkELFMagic(reinterpret_cast<uint8_t*>(&m_elfHeader)), ImplausibleState,
                           "Can't generateELF without previous call to prepareWriter!");
-    VPUX_ELF_THROW_UNLESS(m_totalBinarySize != 0, RangeError, "Unknown size for blob storage. Check if you called Writer::prepareWriter");
+    VPUX_ELF_THROW_UNLESS(m_totalBinarySize != 0, RangeError,
+                          "Unknown size for blob storage. Check if you called Writer::prepareWriter");
     const auto size = getTotalSize();
 
     const auto serializeSection = [data, size](Section* section) {
@@ -105,7 +106,8 @@ void Writer::generateELF(uint8_t* data) {
     m_dataOffset = writeObjectToStorageVector(data, size, 0, m_elfHeader);
 
     if (m_elfHeader.e_shoff) {
-        m_dataOffset = writeContainerToStorageVector(data, size, m_dataOffset, m_sectionHeaders, 0, m_sectionHeaders.size());
+        m_dataOffset =
+                writeContainerToStorageVector(data, size, m_dataOffset, m_sectionHeaders, 0, m_sectionHeaders.size());
     }
 }
 

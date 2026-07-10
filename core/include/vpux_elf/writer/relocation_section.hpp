@@ -45,5 +45,5 @@ private:
     friend Writer;
 };
 
-} // namespace writer
-} // namespace elf
+}  // namespace writer
+}  // namespace elf

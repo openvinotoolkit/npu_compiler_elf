@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -136,7 +136,8 @@ public:
     }
 
     void readExternal(size_t offset, ManagedBuffer& buffer) override {
-        VPUX_ELF_THROW_WHEN((offset + buffer.getBufferSpecs().size) > mSize, AccessError, "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || buffer.getBufferSpecs().size > mSize - offset, AccessError,
+                            "Read request out of bounds");
 
         auto devBuffer = buffer.getBuffer();
         auto lock = ElfBufferLockGuard(&buffer);
@@ -162,7 +163,7 @@ public:
     }
 
     std::unique_ptr<ManagedBuffer> readInternal(size_t offset, const BufferSpecs& specs) override {
-        VPUX_ELF_THROW_WHEN((offset + specs.size) > mSize, AccessError, "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError, "Read request out of bounds");
 
         auto targetAddr = const_cast<uint8_t*>(mBlob) + offset;
 
@@ -190,7 +191,7 @@ public:
     }
 
     std::unique_ptr<ManagedBuffer> readInternal(size_t offset, const BufferSpecs& specs) override {
-        VPUX_ELF_THROW_WHEN((offset + specs.size) > mSize, AccessError, "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError, "Read request out of bounds");
 
         return BufferFactoryBase::getEmplacedBufferStatic(const_cast<uint8_t*>(mBlob) + offset, specs);
     }
@@ -216,7 +217,7 @@ public:
     }
 
     std::unique_ptr<ManagedBuffer> readInternal(size_t offset, const BufferSpecs& specs) override {
-        VPUX_ELF_THROW_WHEN((offset + specs.size) > mSize, AccessError, "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || specs.size > mSize - offset, AccessError, "Read request out of bounds");
         auto buffer = mBufferFactory->getAllocatedBuffer(specs);
         mFileStream.seekg(offset, mFileStream.beg);
         auto lock = ElfBufferLockGuard(buffer.get());
@@ -225,7 +226,8 @@ public:
         return buffer;
     }
     void readExternal(size_t offset, ManagedBuffer& buffer) override {
-        VPUX_ELF_THROW_WHEN((offset + buffer.getBufferSpecs().size) > mSize, AccessError, "Read request out of bounds");
+        VPUX_ELF_THROW_WHEN(offset > mSize || buffer.getBufferSpecs().size > mSize - offset, AccessError,
+                            "Read request out of bounds");
         mFileStream.seekg(offset, mFileStream.beg);
         auto lock = ElfBufferLockGuard(&buffer);
         mFileStream.read(reinterpret_cast<char*>(buffer.getBuffer().cpu_addr()), buffer.getBuffer().size());

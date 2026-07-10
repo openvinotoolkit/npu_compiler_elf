@@ -23,4 +23,4 @@ using Elf32_Off = uint32_t;
 using Elf64_Addr = uint64_t;
 using Elf64_Off = uint64_t;
 
-} // namespace elf
+}  // namespace elf

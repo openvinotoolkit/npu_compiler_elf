@@ -1,11 +1,10 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
 #pragma once
 
-#include <array>
 #include <vector>
 #include <vpux_elf/types/elf_structs.hpp>
 #include <vpux_elf/types/symbol_entry.hpp>
@@ -13,6 +12,7 @@
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/device_buffer.hpp>
 #include <vpux_headers/metadata.hpp>
+#include "vpux_headers/platform.hpp"
 
 namespace elf {
 
@@ -21,6 +21,8 @@ constexpr auto DEFAULT_ALIGN = 64;
 class HostParsedInferenceCommon {
 public:
     virtual ~HostParsedInferenceCommon() = default;
+
+    static std::unique_ptr<HostParsedInferenceCommon> getArchSpecificHPI(elf::platform::ArchKind archKind);
     virtual std::vector<SymbolEntry> getSymbolTable(uint8_t index) const = 0;
     virtual std::vector<elf::Elf_Word> getSymbolSectionTypes() const;
     virtual bool getExplicitAllocationsEnabled() const;

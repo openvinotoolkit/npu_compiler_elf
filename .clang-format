@@ -30,3 +30,4 @@ SpaceBeforeCpp11BracedList: false
 SpaceBeforeCtorInitializerColon: false
 UseTab: Never
 StatementMacros: ['CASE', 'HW_OPS_CASE']
+

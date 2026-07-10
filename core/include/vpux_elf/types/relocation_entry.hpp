@@ -18,24 +18,24 @@ namespace elf {
 
 struct Elf64_Rel {
     Elf64_Addr r_offset;
-    Elf_Xword  r_info;
+    Elf_Xword r_info;
 };
 
 struct Elf64_Rela {
     Elf64_Addr r_offset;
-    Elf_Xword  r_info;
+    Elf_Xword r_info;
     Elf_Sxword r_addend;
 };
 
 struct Elf32_Rel {
     Elf32_Addr r_offset;
-    Elf_Word   r_info;
+    Elf_Word r_info;
 };
 
 struct Elf32_Rela {
     Elf32_Addr r_offset;
-    Elf_Word   r_info;
-    Elf_Sword  r_addend;
+    Elf_Word r_info;
+    Elf_Sword r_addend;
 };
 
 //! Extract symbol index from info
@@ -50,4 +50,4 @@ Elf_Xword elf64RInfo(Elf_Word sym, Elf_Word type);
 using RelocationEntry = Elf64_Rel;
 using RelocationAEntry = Elf64_Rela;
 
-} // namespace elf
+}  // namespace elf

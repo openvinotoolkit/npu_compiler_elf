@@ -1,9 +1,9 @@
 #
-# Copyright (C) 2025 Intel Corporation.
+# Copyright (C) 2025-2026 Intel Corporation.
 # SPDX-License-Identifier: Apache-2.0
 #
 
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.24)
 
 # GoogleTest requires at least C++17
 set(CMAKE_CXX_STANDARD 17)
