@@ -255,8 +255,8 @@ void HostParsedInference::load() {
             }
             auto entryDeviceBuffer = loaders[idx]->getEntry();
             auto entryLock = ElfBufferLockGuard(entryDeviceBuffer.get());
-            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize, SectionError,
-                                  "Entry section is smaller than VpuMappedInference");
+            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize,
+                                  SectionError, "Entry section is smaller than VpuMappedInference");
 
             std::memcpy(entries->getBuffer().cpu_addr() + idx * entrySize,
                         (void*)entryDeviceBuffer->getBuffer().cpu_addr(), entrySize);
@@ -307,8 +307,8 @@ HostParsedInference::HostParsedInference(const HostParsedInference& other)
 
             auto entryDeviceBuffer = loaders[idx]->getEntry();
             auto entryLock = ElfBufferLockGuard(entryDeviceBuffer.get());
-            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize, SectionError,
-                                  "Entry section is smaller than VpuMappedInference");
+            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize,
+                                  SectionError, "Entry section is smaller than VpuMappedInference");
 
             std::memcpy(entries->getBuffer().cpu_addr() + idx * entrySize,
                         (void*)entryDeviceBuffer->getBuffer().cpu_addr(), entrySize);
@@ -377,8 +377,8 @@ HostParsedInference& HostParsedInference::operator=(const HostParsedInference& r
 
             auto entryDeviceBuffer = loaders[idx]->getEntry();
             auto entryLock = ElfBufferLockGuard(entryDeviceBuffer.get());
-            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize, SectionError,
-                                  "Entry section is smaller than VpuMappedInference");
+            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize,
+                                  SectionError, "Entry section is smaller than VpuMappedInference");
 
             std::memcpy(entries->getBuffer().cpu_addr() + idx * entrySize,
                         (void*)entryDeviceBuffer->getBuffer().cpu_addr(), entrySize);

@@ -10,10 +10,10 @@
 #include <limits>
 #include <vector>
 
+#include "allocator_utils/buffer_managers.hpp"
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/managed_buffer.hpp>
-#include "allocator_utils/buffer_managers.hpp"
 
 using namespace elf;
 

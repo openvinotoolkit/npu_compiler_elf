@@ -106,7 +106,7 @@ TEST(Accessor, FSAccessManagerReadsData) {
 
 // Helper: the largest offset that, when added to kOverflowSize, wraps to a
 // small value well below any realistic blob size.
-static constexpr size_t kOverflowSize = 0x20;
+static constexpr size_t kOverflowSize   = 0x20;
 static constexpr size_t kOverflowOffset = SIZE_MAX - kOverflowSize + 1;
 // kOverflowOffset + kOverflowSize == 0  (wraps to 0 on 64-bit unsigned)
 
@@ -120,7 +120,7 @@ TEST(Accessor, DDRAlwaysEmplace_ReadInternal_OverflowBypassThrows) {
     // offset + kOverflowSize wraps to 0, which is < 256, so the naive check passes.
     // A correct overflow-safe check must detect offset >= mSize and throw.
     ASSERT_THROW((void)accessor.readInternal(kOverflowOffset, specs), AccessError)
-            << "Bounds check bypassed via size_t overflow in DDRAccessManager<DDRAlwaysEmplace>::readInternal()";
+        << "Bounds check bypassed via size_t overflow in DDRAccessManager<DDRAlwaysEmplace>::readInternal()";
 }
 
 TEST(Accessor, DDRNeverEmplace_ReadInternal_OverflowBypassThrows) {
@@ -130,8 +130,7 @@ TEST(Accessor, DDRNeverEmplace_ReadInternal_OverflowBypassThrows) {
 
     BufferSpecs specs{1, kOverflowSize, 0};
     ASSERT_THROW((void)accessor.readInternal(kOverflowOffset, specs), AccessError)
-            << "Bounds check bypassed via size_t overflow in "
-               "DDRAccessManager<DDRNeverEmplace,DynamicBufferFactory>::readInternal()";
+        << "Bounds check bypassed via size_t overflow in DDRAccessManager<DDRNeverEmplace,DynamicBufferFactory>::readInternal()";
 }
 
 TEST(Accessor, DDRBase_ReadExternal_OverflowBypassThrows) {
@@ -141,7 +140,7 @@ TEST(Accessor, DDRBase_ReadExternal_OverflowBypassThrows) {
     DynamicBuffer target(BufferSpecs{1, kOverflowSize, 0});
     // buffer.getBufferSpecs().size == kOverflowSize; kOverflowOffset + kOverflowSize wraps to 0.
     ASSERT_THROW(accessor.readExternal(kOverflowOffset, target), AccessError)
-            << "Bounds check bypassed via size_t overflow in DDRAccessManagerBase::readExternal()";
+        << "Bounds check bypassed via size_t overflow in DDRAccessManagerBase::readExternal()";
 }
 
 TEST(Accessor, FSAccessManager_ReadInternal_OverflowBypassThrows) {
@@ -160,7 +159,7 @@ TEST(Accessor, FSAccessManager_ReadInternal_OverflowBypassThrows) {
 
         BufferSpecs specs{1, kOverflowSize, 0};
         ASSERT_THROW((void)accessor.readInternal(kOverflowOffset, specs), AccessError)
-                << "Bounds check bypassed via size_t overflow in FSAccessManager::readInternal()";
+            << "Bounds check bypassed via size_t overflow in FSAccessManager::readInternal()";
     }
 
     std::error_code ec;
@@ -183,7 +182,7 @@ TEST(Accessor, FSAccessManager_ReadExternal_OverflowBypassThrows) {
 
         DynamicBuffer target(BufferSpecs{1, kOverflowSize, 0});
         ASSERT_THROW(accessor.readExternal(kOverflowOffset, target), AccessError)
-                << "Bounds check bypassed via size_t overflow in FSAccessManager::readExternal()";
+            << "Bounds check bypassed via size_t overflow in FSAccessManager::readExternal()";
     }
 
     std::error_code ec;

@@ -8,8 +8,8 @@
 #pragma once
 
 #include <vpux_elf/types/data_types.hpp>
-#include <vpux_elf/types/section_header.hpp>
 #include <vpux_elf/types/symbol_entry.hpp>
+#include <vpux_elf/types/section_header.hpp>
 
 namespace elf {
 
@@ -202,26 +202,26 @@ constexpr uint8_t VPU_STT_ENTRY = STT_LOOS;
 // Section types
 //
 
-constexpr Elf_Word VPU_SHT_NETDESC = 0x8aaaaaaa;
-constexpr Elf_Word VPU_SHT_PROF = 0x8aaaaaab;
-constexpr Elf_Word VPU_SHT_CMX_METADATA = 0x8aaaaaac;
-constexpr Elf_Word VPU_SHT_CMX_WORKSPACE = 0x8aaaaaad;
-constexpr Elf_Word VPU_SHT_PERF_METRICS = 0x8aaaaaae;
-constexpr Elf_Word VPU_SHT_PLATFORM_INFO = 0x8aaaaaaf;
-constexpr Elf_Word VPU_SHT_COMPILER_HASH = 0x8aaaaab0;
-constexpr Elf_Word VPU_SHT_DMA_SYMBOLS = 0x8aaaaab1;
+constexpr Elf_Word VPU_SHT_NETDESC        = 0x8aaaaaaa;
+constexpr Elf_Word VPU_SHT_PROF           = 0x8aaaaaab;
+constexpr Elf_Word VPU_SHT_CMX_METADATA   = 0x8aaaaaac;
+constexpr Elf_Word VPU_SHT_CMX_WORKSPACE  = 0x8aaaaaad;
+constexpr Elf_Word VPU_SHT_PERF_METRICS   = 0x8aaaaaae;
+constexpr Elf_Word VPU_SHT_PLATFORM_INFO  = 0x8aaaaaaf;
+constexpr Elf_Word VPU_SHT_COMPILER_HASH  = 0x8aaaaab0;
+constexpr Elf_Word VPU_SHT_DMA_SYMBOLS    = 0x8aaaaab1;
 
 //
 // Section flags
 //
 
-constexpr Elf_Xword VPU_SHF_JIT = 0x100000;
-constexpr Elf_Xword VPU_SHF_USERINPUT = 0x200000;
-constexpr Elf_Xword VPU_SHF_USEROUTPUT = 0x400000;
-constexpr Elf_Xword VPU_SHF_PROFOUTPUT = 0x800000;
-constexpr Elf_Xword VPU_SHF_PROC_DPU = 0x10000000;
-constexpr Elf_Xword VPU_SHF_PROC_DMA = 0x20000000;
-constexpr Elf_Xword VPU_SHF_PROC_SHAVE = 0x40000000;
+constexpr Elf_Xword VPU_SHF_JIT             = 0x100000;
+constexpr Elf_Xword VPU_SHF_USERINPUT       = 0x200000;
+constexpr Elf_Xword VPU_SHF_USEROUTPUT      = 0x400000;
+constexpr Elf_Xword VPU_SHF_PROFOUTPUT      = 0x800000;
+constexpr Elf_Xword VPU_SHF_PROC_DPU        = 0x10000000;
+constexpr Elf_Xword VPU_SHF_PROC_DMA        = 0x20000000;
+constexpr Elf_Xword VPU_SHF_PROC_SHAVE      = 0x40000000;
 
 //
 // Special section indexes
@@ -252,5 +252,5 @@ const Elf_Word VPU_SH_ADDR_ALIGN_FOR_VPU = 64;
 namespace elf_note {
 // Custom values for n_type field of SHT_NOTE section
 constexpr uint32_t NT_NPU_MPI_VERSION = 0xA000;
-}  // namespace elf_note
-}  // namespace elf
+}
+}

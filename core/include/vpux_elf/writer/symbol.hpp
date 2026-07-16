@@ -55,5 +55,5 @@ private:
     friend SymbolSection;
 };
 
-}  // namespace writer
-}  // namespace elf
+} // namespace writer
+} // namespace elf
