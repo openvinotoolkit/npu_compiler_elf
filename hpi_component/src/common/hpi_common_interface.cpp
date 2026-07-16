@@ -42,7 +42,7 @@ std::unique_ptr<HostParsedInferenceCommon> HostParsedInferenceCommon::getArchSpe
         archSpecificHPI = std::make_unique<HostParsedInference_5000>(archKind);
         break;
 #endif
-        // to be updated with E#88139: NPU5000+ share a common HPI implementation
+// to be updated with E#88139: NPU5000+ share a common HPI implementation
     default:
         VPUX_ELF_THROW(RangeError, (elf::platform::stringifyArchKind(archKind) + " arch is not supported").c_str());
         break;

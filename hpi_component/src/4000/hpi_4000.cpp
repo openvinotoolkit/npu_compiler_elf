@@ -23,13 +23,14 @@
 
 // clang-format on
 
-namespace {  // NNRT api defines. Must not be changed. Required for LNL PV
-             // compatibility.
+namespace { // NNRT api defines. Must not be changed. Required for LNL PV
+            // compatibility.
 constexpr uint32_t VPU_METADATA_STORAGE_ADDR = 0x40203c00;
 constexpr uint32_t VPU_WORKSPACE_ADDR = 0x40218000;
 constexpr uint32_t VPU_WORKSPACE_SIZE_IN_BYTES = 1440 * 1024;
 constexpr uint32_t VPU_MAX_TILES = 6;
-}  // namespace
+} // namespace
+
 
 namespace elf {
 

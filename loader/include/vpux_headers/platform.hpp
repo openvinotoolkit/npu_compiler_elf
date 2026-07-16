@@ -21,7 +21,7 @@ enum class ArchKind : uint64_t {
     VPUX30XX = 1,
     VPUX37XX = 3,
     VPUX40XX = 4,
-    VPUX50XX = 5,  // E#192965
+    VPUX50XX = 5, // E#192965
     VPUX501X = 5,
     VPUX502X = 5020,
 };

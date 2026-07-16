@@ -88,7 +88,7 @@ DynamicBuffer::DynamicBuffer(BufferSpecs bSpecs): ManagedBuffer(bSpecs) {
     VPUX_ELF_THROW_UNLESS(utils::isPowerOfTwo(mDefaultSafeAlignment), RuntimeError,
                           "Default safe alignment is not a power of 2");
     VPUX_ELF_THROW_UNLESS(utils::isPowerOfTwo(bSpecs.alignment), RuntimeError,
-                          "Requested alignment is not a power of 2");
+                        "Requested alignment is not a power of 2");
     VPUX_ELF_THROW_WHEN(bSpecs.alignment > kMaxAlignment, ArgsError, "Unreasonable alignment");
 
     const size_t bufferAlignment =
@@ -107,9 +107,9 @@ DynamicBuffer::DynamicBuffer(BufferSpecs bSpecs): ManagedBuffer(bSpecs) {
 
     VPUX_ELF_THROW_WHEN(bufferBaseAligned < bufferBase, RuntimeError, "Invalid aligned base");
     const size_t pad = bufferBaseAligned - bufferBase;
-    VPUX_ELF_THROW_WHEN(
-            static_cast<size_t>(bSpecs.size) > mData.size() || pad > mData.size() - static_cast<size_t>(bSpecs.size),
-            AllocError, "Usable buffer range exceeds parent buffer");
+    VPUX_ELF_THROW_WHEN(static_cast<size_t>(bSpecs.size) > mData.size() ||
+                            pad > mData.size() - static_cast<size_t>(bSpecs.size), AllocError,
+                        "Usable buffer range exceeds parent buffer");
 
     mDevBuffer = DeviceBuffer(reinterpret_cast<uint8_t*>(bufferBaseAligned), bufferBaseAligned, bSpecs.size);
 }
