@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -10,7 +10,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-RelocationSection::RelocationSection(const std::string& name) : Section(name) {
+RelocationSection::RelocationSection(const std::string& name): Section(name) {
     m_header.sh_type = SHT_RELA;
     m_header.sh_entsize = sizeof(RelocationAEntry);
     m_fileAlignRequirement = alignof(RelocationAEntry);
@@ -59,7 +59,8 @@ void RelocationSection::finalize() {
     for (const auto& relocation : m_relocations) {
         auto relocationEntry = relocation->m_relocation;
         if (relocation->getSymbol()) {
-            relocationEntry.r_info = elf64RInfo(static_cast<Elf_Word>(relocation->getSymbol()->getIndex()), relocation->getType());
+            relocationEntry.r_info =
+                    elf64RInfo(static_cast<Elf_Word>(relocation->getSymbol()->getIndex()), relocation->getType());
         }
 
         m_data.insert(m_data.end(), reinterpret_cast<uint8_t*>(&relocationEntry),

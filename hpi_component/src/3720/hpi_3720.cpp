@@ -14,9 +14,7 @@
 #include <array>
 #include <cstring>
 
-#include <api/vpu_nnrt_api_37xx.h>
-#include <api/vpu_cmx_info_37xx.h>
-#include <api/vpu_pwrmgr_api.h>
+#include <nnrt_headers_37xx.hpp>
 
 // clang-format on
 
@@ -147,7 +145,7 @@ void HostParsedInference_3720::setHostParsedInference(DeviceBuffer& devBuffer,
     hpi->resource_requirements_.nn_barriers_ = resReq.nn_barriers_;
     if (perf_metrics) {
         VPUX_ELF_THROW_UNLESS((perfSectionSize >= sizeof(VpuPerformanceMetrics)), ArgsError,
-                             "Performance metrics section size is smaller than expected!");
+                              "Performance metrics section size is smaller than expected!");
         memcpy(static_cast<void*>(&hpi->performance_metrics_), static_cast<const void*>(perf_metrics),
                sizeof(VpuPerformanceMetrics));
     } else {

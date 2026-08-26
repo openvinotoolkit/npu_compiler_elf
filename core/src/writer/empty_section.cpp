@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -10,7 +10,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-EmptySection::EmptySection(const std::string& name) : Section(name) {
+EmptySection::EmptySection(const std::string& name): Section(name) {
     m_header.sh_type = elf::SHT_NOBITS;
 }
 

@@ -1,10 +1,11 @@
 //
-// Copyright (C) 2025 Intel Corporation
+// Copyright (C) 2025-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
 //
 
+#include <memory>
 #include <vpux_elf/types/vpu_extensions.hpp>
 #include <vpux_elf/writer/dma_symbol_section.hpp>
 
@@ -20,7 +21,7 @@ DmaSymbolSection::DmaSymbolSection(const std::string& name): Section(name), sh_i
 }
 
 DmaSymbol* DmaSymbolSection::addDmaSymbolEntry() {
-    m_symbols.push_back(std::unique_ptr<DmaSymbol>(new DmaSymbol()));
+    m_symbols.push_back(std::make_unique<DmaSymbol>());
     m_symbols.back()->setIndex(m_symbols.size() - 1);
     return m_symbols.back().get();
 }

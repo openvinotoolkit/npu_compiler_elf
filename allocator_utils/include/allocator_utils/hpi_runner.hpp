@@ -25,10 +25,10 @@ public:
             VPUX_ELF_THROW_WHEN(
                     _hpiBufferManager->getStats()._currentTotalSize || _ioBufferManager->getStats()._currentTotalSize,
                     elf::RuntimeError, "Memory leak occurred");
-        } catch (std::exception& e) {
+        } catch (const std::exception& e) {
             std::cout << "Caught exception: " << e.what() << std::endl;
             // Rethrow to application level
-            throw(e);
+            throw;
         } catch (...) {
             std::cout << "Caught unknown exception" << std::endl;
             VPUX_ELF_THROW(elf::RuntimeError, "Unkown exception occurred");

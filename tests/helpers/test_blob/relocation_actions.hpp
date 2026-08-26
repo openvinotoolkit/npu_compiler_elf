@@ -149,7 +149,7 @@ private:
 
         Traits::setSymbol(relocation, sym);
 
-        handle.addResult(this, std::make_shared<typename RelocationTraits::ResultType>(relocation));
+        handle.addResult(this, std::make_shared<typename Traits::ResultType>(relocation));
     }
 };
 

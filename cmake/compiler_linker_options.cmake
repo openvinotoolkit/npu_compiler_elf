@@ -1,4 +1,4 @@
-# Copyright (C) 2023-2025 Intel Corporation
+# Copyright (C) 2023-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # No license under any patent, copyright, trade secret or other intellectual
@@ -20,12 +20,15 @@ if(MSVC)
         "/EHsc"         # ExceptionHandling Sync
         "/ZH:SHA_256"   # Enables secure source code hashing, which will be
                         # default in VS2022, so we'll remove this when we upgrade
+        "/GS"           # BufferSecurityCheck - stack canary (defense-in-depth)
+        "/sdl"          # SDLchecks - additional security checks
+        "/guard:cf"     # Control Flow Guard (CFG) - mitigate ROP attacks
     )
 
     if( "${ARCH}" STREQUAL "32" )
-        set(UMD_COMPILER_OPTIONS_COMMON
-            /arch:SSE2  # Streaming SIMD Extensions 2
-            /Gr         # Calling Convention: __fastcall
+        list(APPEND UMD_COMPILER_OPTIONS_COMMON
+            "/arch:SSE2"  # Streaming SIMD Extensions 2
+            "/Gr"         # Calling Convention: __fastcall
         )
     endif()
 
@@ -38,9 +41,7 @@ if(MSVC)
     )
 
     set(UMD_COMPILER_OPTIONS_DEBUG
-        "/GS"  # BufferSecurityCheck
         "/Od"  # OptimizationDisabled
-        "/sdl" # SDLchecks
         "/bigobj" # increase max .obj sections to 2^32 (from 2^16).
                 # avoids: https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/fatal-error-c1128?view=msvc-170
     )
@@ -58,6 +59,8 @@ if(MSVC)
         "/OPT:REF"              # OptimizeReferences
         "/ignore:4099"          # Link library regardless of missing pdb
         "/CETCOMPAT"            # CET Shadow Stack compatible (/CETCOMPAT)
+        "/DYNAMICBASE"          # ASLR support - randomize image base
+        "/guard:cf"             # Control Flow Guard (CFG) at link time
     )
 
     set(UMD_LINKER_OPTIONS_RELEASE

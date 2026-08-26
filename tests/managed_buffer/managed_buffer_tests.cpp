@@ -10,10 +10,10 @@
 #include <limits>
 #include <vector>
 
-#include "allocator_utils/buffer_managers.hpp"
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/managed_buffer.hpp>
+#include "allocator_utils/buffer_managers.hpp"
 
 using namespace elf;
 
@@ -21,6 +21,15 @@ namespace {
 
 TEST(ManagedBuffer, DynamicBufferRejectsNonPowerOfTwoAlignment) {
     ASSERT_THROW((void)DynamicBuffer(BufferSpecs{3, 16, 0}), RuntimeError);
+}
+
+TEST(ManagedBuffer, DynamicBufferAcceptsZeroAlignment) {
+    const BufferSpecs specs{0, 16, 0};
+    DynamicBuffer buffer(specs);
+
+    auto devBuffer = buffer.getBuffer();
+    ASSERT_NE(devBuffer.cpu_addr(), nullptr);
+    ASSERT_EQ(devBuffer.size(), specs.size);
 }
 
 TEST(ManagedBuffer, DynamicBufferRespectsRequestedAlignmentAndSize) {
@@ -74,7 +83,9 @@ TEST(ManagedBuffer, StaticBufferMoveConstructorTransfersAndClearsSource) {
 
     ASSERT_EQ(moved.getBuffer().cpu_addr(), raw.data());
     ASSERT_EQ(moved.getBuffer().size(), specs.size);
-    ASSERT_EQ(source.getBuffer().cpu_addr(), nullptr);
+    ASSERT_EQ(source.getBuffer().cpu_addr(),  // NOLINT(bugprone-use-after-move) expected: the test is checking
+                                              // the object after move
+              nullptr);
     ASSERT_EQ(source.getBuffer().size(), 0U);
 }
 
@@ -90,7 +101,9 @@ TEST(ManagedBuffer, StaticBufferMoveAssignmentTransfersAndClearsSource) {
 
     ASSERT_EQ(target.getBuffer().cpu_addr(), rawA.data());
     ASSERT_EQ(target.getBuffer().size(), specs.size);
-    ASSERT_EQ(source.getBuffer().cpu_addr(), nullptr);
+    ASSERT_EQ(source.getBuffer().cpu_addr(),  // NOLINT(bugprone-use-after-move) expected as the test is checking
+                                              // the object after move
+              nullptr);
     ASSERT_EQ(source.getBuffer().size(), 0U);
 }
 

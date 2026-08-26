@@ -37,7 +37,7 @@ public:
         _writer.generateELF(elf.data());
         _writer.setSectionsStartAddr(elf.data());
 
-        for (auto action : _actionMap) {
+        for (const auto& action : _actionMap) {
             action.second->finalize(*_handle);
         }
 
@@ -93,16 +93,16 @@ void TestBlob::dumpToFile(const std::string& fileName, const std::vector<uint8_t
 }
 
 void TestBlobHandle::execute(std::shared_ptr<IAction> action) {
-    return _core->execute(action);
+    _core->execute(action);
 }
 void TestBlobHandle::execute(const ActionsSequence& sequence) {
-    return _core->execute(sequence);
+    _core->execute(sequence);
 }
 elf::Writer* TestBlobHandle::getWriter() {
     return _core->getWriter();
 }
 void TestBlobHandle::addResult(const IAction* action, std::shared_ptr<IResult> result) {
-    return _core->addResult(action->getName(), result);
+    _core->addResult(action->getName(), result);
 }
 std::shared_ptr<IResult> TestBlobHandle::getResult(const std::string& name) {
     return _core->getResult(name);

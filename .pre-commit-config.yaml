@@ -14,7 +14,7 @@ repos:
         stages: [pre-commit]
         args: ["-style=file"]
         types: [c++]
-        exclude: 'thirdparty/.*|sw_runtime_kernels/.*'
+        exclude: '3rdparty/.*'
         require_serial: false
         additional_dependencies: ['clang-format==18.1.8']
 

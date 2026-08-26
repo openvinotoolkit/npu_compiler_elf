@@ -6,6 +6,8 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <vector>
 #include <vpux_elf/accessor.hpp>
 #include <vpux_elf/utils/version.hpp>
@@ -72,6 +74,10 @@ public:
     elf::Version getLibraryMIVersion() const;
     size_t getHPISize() const;
 
+    // Returns the compatibility string embedded in the blob's VPU_SHT_COMPATIBILITY_STRING
+    // section, or std::nullopt if the blob predates this section.
+    std::optional<std::string> readCompatibilityString() const;
+
     void applyInputOutput(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
                           std::vector<DeviceBuffer>& profiling);
     void load();
@@ -87,7 +93,7 @@ private:
     std::shared_ptr<elf::platform::PlatformInfo> platformInfo;
     std::shared_ptr<ManagedBuffer> perfMetrics;
     std::vector<std::unique_ptr<VPUXLoader>> loaders;
-    std::shared_ptr<AllocatedDeviceBuffer> parsedInference;
+    std::shared_ptr<ManagedBuffer> parsedInference;
     std::shared_ptr<AllocatedDeviceBuffer> entries;
 
     // helpers
@@ -96,11 +102,17 @@ private:
     std::shared_ptr<ManagedBuffer> readPerfMetrics();
     elf::Version readVersioningInfo(uint32_t versionType) const;
     void checkCompilerHash();
+    void createParsedInference(HostParsedInferenceCommon& archSpecificHpi, const std::vector<uint64_t>& entriesVct,
+                               bool refreshPerfMetrics);
 };
 
 void checkTileCountCompatibility(uint64_t blobTileCount, uint64_t hwTileCount);
 void checkPlatformCompatibility(platform::ArchKind blobArchKind, platform::ArchKind hwArchKind);
 
-void checkCompatibilityString(const DeviceDescriptor& deviceDescriptor, const std::string& compatibilityString);
+// Making fwMIVersion optional is temporary to keep support of existing drivers using previous API
+// Once drivers are migrated to API with fwMIVersion, this parameter will be made mandatory
+// Using static internal MI version as supported is error-prone and can lead to bugs if FW headers copy is not updated
+void checkCompatibilityString(const DeviceDescriptor& deviceDescriptor, const std::string& compatibilityString,
+                              std::optional<elf::Version> fwMIVersion = std::nullopt);
 
 }  // namespace elf

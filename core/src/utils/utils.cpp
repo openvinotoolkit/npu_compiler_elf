@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -37,7 +37,15 @@ size_t alignUp(size_t size, size_t alignment) {
     return size;
 }
 
-bool isPowerOfTwo(size_t value) {
+// ELF permits sh_addralign values of 0 or 1 to mean "no alignment constraint".
+// Normalize 0 to 1 so all downstream checks can treat alignment as a non-zero value.
+// This keeps power-of-two validation and alignment arithmetic consistent across
+// reader/loader paths without special-casing 0 at every call site.
+uint64_t normalizeAlignment(uint64_t alignment) {
+    return alignment == 0 ? 1 : alignment;
+}
+
+bool isPowerOfTwo(uint64_t value) {
     return value && ((value & (value - 1)) == 0);
 }
 

@@ -16,8 +16,8 @@ public:
     BufferSpecs getParsedInferenceBufferSpecs() override;
     BufferSpecs getEntryBufferSpecs(size_t) override;
     void setHostParsedInference(DeviceBuffer& devBuffer, const std::vector<uint64_t>& mapped_entry,
-                                const ResourceRequirements& resReq, const uint64_t* perf_metrics,
-                                const elf::Version&, uint64_t perfSectionSize) override;
+                                const ResourceRequirements& resReq, const uint64_t* perf_metrics, const elf::Version&,
+                                uint64_t perfSectionSize) override;
     elf::Version getELFLibABIVersion() const override;
     elf::Version getStaticMIVersion() const override;
     uint32_t getArchTilesCount() const override;
@@ -25,8 +25,17 @@ public:
 private:
     static constexpr uint32_t VERSION_MAJOR = 1;
     static constexpr uint32_t VERSION_MINOR = 3;
-    static constexpr uint32_t VERSION_PATCH = 7;
+    static constexpr uint32_t VERSION_PATCH = 10;
 
+    // 1.3.10
+    // - allow normalized 0 alignment
+    //
+    // 1.3.9
+    // - Fix DMA JIT user-stride copy size to avoid out-of-bounds read
+    //
+    // 1.3.8
+    // - Add support for VPU_SHT_COMPATIBILITY_STRING section type
+    //
     // 1.3.7
     // - Fix header offset overflow in Reader when section table offset is close to file size limit
     //

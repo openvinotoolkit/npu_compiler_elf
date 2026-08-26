@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -13,17 +13,12 @@
 #include <vpux_elf/types/section_header.hpp>
 #include <vpux_elf/types/symbol_entry.hpp>
 
-
 namespace elf {
 
-enum ELF_Bitness {
-    Elf32 = 32,
-    Elf64 = 64
-};
+enum ELF_Bitness { Elf32 = 32, Elf64 = 64 };
 
 template <ELF_Bitness B>
-struct ElfTypes {
-};
+struct ElfTypes {};
 
 template <>
 struct ElfTypes<ELF_Bitness::Elf32> {
@@ -43,4 +38,4 @@ struct ElfTypes<ELF_Bitness::Elf64> {
     using SymbolEntry = Elf64_Sym;
 };
 
-} // namespace elf
+}  // namespace elf

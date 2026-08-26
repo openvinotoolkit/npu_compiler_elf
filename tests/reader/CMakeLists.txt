@@ -13,7 +13,7 @@ add_executable(
 target_include_directories(${TARGET_NAME} PUBLIC
     ${PROJECT_SOURCE_DIR}/core/include/
     ${PROJECT_SOURCE_DIR}/loader/include/
-    ${PROJECT_SOURCE_DIR}/3rdparty/nnrt_api/
+    ${PROJECT_SOURCE_DIR}/3rdparty/nnrt/
 
 )
 

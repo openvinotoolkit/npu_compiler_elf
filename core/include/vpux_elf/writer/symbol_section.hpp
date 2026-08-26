@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <vpux_elf/writer/symbol.hpp>
 #include <vpux_elf/writer/string_section.hpp>
+#include <vpux_elf/writer/symbol.hpp>
 
 namespace elf {
 
@@ -42,5 +42,5 @@ private:
     friend Writer;
 };
 
-} // namespace writer
-} // namespace elf
+}  // namespace writer
+}  // namespace elf
