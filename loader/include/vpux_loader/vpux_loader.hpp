@@ -72,6 +72,7 @@ public:
     void load(const std::vector<SymbolEntry>& runtimeSymTabs, bool symTabOverrideMode = false,
               const std::vector<elf::Elf_Word>& symbolSectionTypes = {}, bool explicitAllocations = false);
     elf::DeviceBufferContainer::BufferPtr getEntry();
+    elf::DeviceBufferContainer::BufferPtr getHPISection();
 
     void applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vector<DeviceBuffer>& outputs,
                              std::vector<DeviceBuffer>& profiling);

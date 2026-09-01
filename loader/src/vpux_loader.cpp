@@ -34,10 +34,9 @@ void safeGet(T* dst, const T* src) {
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "copying to %p from %p amount %u", dst, src, sizeof(T));
     memcpy(reinterpret_cast<void*>(dst), reinterpret_cast<const void*>(src), sizeof(T));
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "copy done");
-    return;
 }
 
-const uint32_t ADDRESS_MASK = ~0x00C0'0000u;
+const uint32_t ADDRESS_MASK = ~0x00C0'0000U;
 const uint64_t SLICE_LENGTH = 2 * 1024 * 1024;
 
 uint32_t to_dpu_multicast(uint32_t addr, unsigned int& offset1, unsigned int& offset2, unsigned int& offset3) {
@@ -204,8 +203,7 @@ const auto VPU_DISP28_MULTICAST_OFFSET_Relocation = [](void* targetAddr, const e
     to_dpu_multicast(static_cast<uint32_t>(symVal + addend), offs[0], offs[1], offs[2]);
 
     const auto index = *addr >> 4;
-    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError,
-                      "Multicast offset index out of range");
+    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError, "Multicast offset index out of range");
     *addr &= 0xf;
     *addr |= offs[index] << 4;
 };
@@ -222,8 +220,7 @@ const auto VPU_DISP4_MULTICAST_OFFSET_Relocation = [](void* targetAddr, const el
     to_dpu_multicast(static_cast<uint32_t>(symVal + addend), offs[0], offs[1], offs[2]);
 
     const auto index = *addr & 0xf;
-    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError,
-                      "Multicast offset index out of range");
+    VPUX_ELF_THROW_UNLESS(index < (sizeof(offs) / sizeof(offs[0])), RelocError, "Multicast offset index out of range");
     *addr &= 0xfffffff0;
     *addr |= offs[index] != 0;
 };
@@ -447,6 +444,8 @@ const std::unordered_map<Elf_Word, VPUXLoader::Action> VPUXLoader::actionMap = {
         {VPU_SHT_PERF_METRICS, Action::None},
         {VPU_SHT_COMPILER_HASH, Action::None},
         {VPU_SHT_DMA_SYMBOLS, Action::None},
+        {VPU_SHT_COMPATIBILITY_STRING, Action::None},
+        {VPU_SHT_HPI, Action::AllocateAndLoad},
 };
 
 const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::RelocationFunc> VPUXLoader::relocationMap = {
@@ -511,10 +510,15 @@ const std::unordered_map<VPUXLoader::RelocationType, uint8_t> VPUXLoader::reloca
 
 const std::unordered_map<VPUXLoader::RelocationType, VPUXLoader::DmaRelocationFunc> VPUXLoader::dmaRelocationMap = {
         {R_VPU_DMA_TASK_INPUT, relocations::dmaTaskInputRelocation},
-        {R_VPU_DMA_TASK_OUTPUT, relocations::dmaTaskOutputRelocation}};
+        {R_VPU_DMA_TASK_OUTPUT, relocations::dmaTaskOutputRelocation},
+        {R_VPU_DMA_TASK_INPUT_BIT, relocations::dmaTaskInputBitRelocation},
+        {R_VPU_DMA_TASK_OUTPUT_BIT, relocations::dmaTaskOutputBitRelocation}};
 
 const std::unordered_map<VPUXLoader::RelocationType, uint8_t> VPUXLoader::dmaRelocationSizeMap = {
-        {R_VPU_DMA_TASK_INPUT, 192}, {R_VPU_DMA_TASK_OUTPUT, 192}};
+        {R_VPU_DMA_TASK_INPUT, 192},
+        {R_VPU_DMA_TASK_OUTPUT, 192},
+        {R_VPU_DMA_TASK_INPUT_BIT, 192},
+        {R_VPU_DMA_TASK_OUTPUT_BIT, 192}};
 
 VPUXLoader::VPUXLoader(AccessManager* accessor, BufferManager* bufferManager)
         : m_inferBufferContainer(bufferManager),
@@ -662,6 +666,23 @@ elf::DeviceBufferContainer::BufferPtr VPUXLoader::getEntry() {
     return {};
 }
 
+elf::DeviceBufferContainer::BufferPtr VPUXLoader::getHPISection() {
+    const auto sectionMapIt = m_sectionMap->find(elf::VPU_SHT_HPI);
+    if (sectionMapIt == m_sectionMap->end() || sectionMapIt->second.empty()) {
+        return {};
+    }
+
+    VPUX_ELF_THROW_WHEN(sectionMapIt->second.size() > 1, RangeError, "Expected at most one VPU_SHT_HPI section.");
+
+    const auto sectionIndex = sectionMapIt->second.front();
+    VPUX_ELF_THROW_UNLESS(m_inferBufferContainer.hasBufferInfoAtIndex(sectionIndex), SectionError,
+                          "VPU_SHT_HPI section is not available in infer buffer container.");
+
+    const auto& sectionBufferInfo = m_inferBufferContainer.getBufferInfoFromIndex(sectionIndex);
+    VPUX_ELF_THROW_UNLESS(sectionBufferInfo.mBuffer != nullptr, AccessError, "VPU_SHT_HPI section buffer is nullptr.");
+    return sectionBufferInfo.mBuffer;
+}
+
 void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool,
                       const std::vector<elf::Elf_Word>& symbolSectionTypes, bool explicitAllocations) {
     VPUX_ELF_THROW_WHEN(m_loaded, SequenceError, "Sections were previously loaded.");
@@ -749,8 +770,7 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool,
             inferBufferInfo.mBufferDetails.mIsShared = sectionFlags & SHF_WRITE ? false : true;
             inferBufferInfo.mBufferDetails.mIsProcessed = false;
 
-            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tLoaded section %s (address: %p, size: %llu)", section.getName(),
-                         inferBufferInfo.mBuffer->getBuffer().cpu_addr(), inferBufferInfo.mBuffer->getBuffer().size());
+            VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistered section %s for deferred allocation", section.getName());
             break;
         }
 
@@ -763,7 +783,7 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool,
             VPUX_ELF_LOG(LogLevel::LOG_TRACE, "Allocating %zu", sectionCtr);
 
             auto sectionSize = sectionHeader->sh_size;
-            auto sectionAlignment = sectionHeader->sh_addralign;
+            const auto sectionAlignment = utils::normalizeAlignment(sectionHeader->sh_addralign);
 
             // Based on the SHF_WRITE definition (see details in section_header.hpp) in the ELF format and since the
             // format does not impose restrictions on using (i.e. setting) the flag together with different section
@@ -853,8 +873,6 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool,
 
     // sections were loaded. other calls to this method will throw an error
     m_loaded = true;
-
-    return;
 }
 
 void VPUXLoader::cacheScratchRelocations() {
@@ -941,7 +959,7 @@ void VPUXLoader::updateSharedBuffers(const std::vector<std::size_t>& relocationS
         const auto& relocSection = m_reader->getSection(relocationSectionIdx);
         const auto relocSecHdr = relocSection.getHeader();
         const auto relocSecFlags = relocSecHdr->sh_flags;
-        Elf_Word targetSectionIdx;
+        Elf_Word targetSectionIdx = 0;
         if (relocSecFlags & SHF_INFO_LINK) {
             targetSectionIdx = relocSecHdr->sh_info;
         } else {
@@ -1504,12 +1522,15 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
                 symbol.address = ioBuffers[bufferIdx].vpu_addr();
                 auto ioBufferUserStrides = ioBuffers[bufferIdx].get_user_stride();
                 if (ioBufferUserStrides.has_value()) {
-                    VPUX_ELF_THROW_UNLESS(sizeof(ioBufferUserStrides.value()) <= sizeof(symbol.dmaStrides), RelocError,
-                                          "Mismatch between symbol DMA strides and user strides");
-                    VPUX_ELF_THROW_UNLESS(sizeof(ioBufferUserStrides.value()) <= sizeof(symbol.strides), RelocError,
-                                          "Mismatch between symbol strides and user strides");
-                    std::memcpy(symbol.dmaStrides, ioBufferUserStrides.value().data(), sizeof(symbol.dmaStrides));
-                    std::memcpy(symbol.strides, ioBufferUserStrides.value().data(), sizeof(symbol.strides));
+                    const auto userStridesSize = sizeof(ioBufferUserStrides.value());
+                    VPUX_ELF_THROW_UNLESS(userStridesSize <= sizeof(symbol.dmaStrides), RelocError,
+                                          "Mismatch between symbol DMA strides and user strides",
+                                          ErrorCode::ELF_ERROR_RELOCATION_DMA_USER_STRIDES_TO_DMASTRIDES_SIZE_MISMATCH);
+                    VPUX_ELF_THROW_UNLESS(userStridesSize <= sizeof(symbol.strides), RelocError,
+                                          "Mismatch between symbol strides and user strides",
+                                          ErrorCode::ELF_ERROR_RELOCATION_DMA_USER_STRIDES_TO_STRIDES_SIZE_MISMATCH);
+                    std::memcpy(symbol.dmaStrides, ioBufferUserStrides.value().data(), userStridesSize);
+                    std::memcpy(symbol.strides, ioBufferUserStrides.value().data(), userStridesSize);
                 }
             };
 

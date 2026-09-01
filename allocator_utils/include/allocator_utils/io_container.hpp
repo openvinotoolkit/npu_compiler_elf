@@ -24,8 +24,7 @@ public:
     std::vector<elf::DeviceBuffer>& getOutputBuffers();
     std::vector<elf::DeviceBuffer>& getProfilingBuffers();
 
-    static void allocIO(elf::DeviceBufferContainer& bufferContainer,
-                        const std::vector<elf::DeviceBuffer>& bufferSpecs);
+    static void allocIO(elf::DeviceBufferContainer& bufferContainer, const std::vector<elf::DeviceBuffer>& bufferSpecs);
 
 private:
     // DeviceBufferContainer operates with raw pointer of BufferManager, so keep the BufferManager referenced to be able

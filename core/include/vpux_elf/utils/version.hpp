@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <sstream>
 #include <tuple>
-#include <vpux_elf/utils/log.hpp>
 #include <vpux_elf/utils/error.hpp>
+#include <vpux_elf/utils/log.hpp>
 
 namespace elf {
 
@@ -19,16 +19,18 @@ namespace elf {
 // ELF Library version control struct
 //
 
-enum class VersionType {
-    UNKNOWN_VERSION = 0,
-    ELF_ABI_VERSION = 1,
-    MAPPED_INFERENCE_VERSION = 2
-};
+enum class VersionType { UNKNOWN_VERSION = 0, ELF_ABI_VERSION = 1, MAPPED_INFERENCE_VERSION = 2 };
 
 class Version final {
 public:
-    constexpr Version(uint32_t v_major, uint32_t v_minor, uint32_t v_patch) : mi_format{0}, major{v_major}, minor{v_minor}, patch{v_patch}, isValid{true} {};
-    explicit Version(const elf::elf_note::VersionNote& versionNote) : mi_format{versionNote.n_desc[0]}, major{versionNote.n_desc[1]}, minor{versionNote.n_desc[2]}, patch{versionNote.n_desc[3]}, isValid{true} {};
+    constexpr Version(uint32_t v_major, uint32_t v_minor, uint32_t v_patch)
+            : mi_format{0}, major{v_major}, minor{v_minor}, patch{v_patch}, isValid{true} {};
+    explicit Version(const elf::elf_note::VersionNote& versionNote)
+            : mi_format{versionNote.n_desc[0]},
+              major{versionNote.n_desc[1]},
+              minor{versionNote.n_desc[2]},
+              patch{versionNote.n_desc[3]},
+              isValid{true} {};
     Version() = default;
 
     uint32_t getMIFormat() const;
@@ -38,18 +40,18 @@ public:
 
     std::string toString() const;
 
-    friend std::ostream& operator<< (std::ostream& stream, const Version& version) {
+    friend std::ostream& operator<<(std::ostream& stream, const Version& version) {
         stream << version.toString();
         return stream;
     }
 
     // Comparison operators
-    bool operator== (const Version& other) const;
-    bool operator!= (const Version& other) const;
-    bool operator< (const Version& other) const;
-    bool operator> (const Version& other) const;
-    bool operator<= (const Version& other) const;
-    bool operator>= (const Version& other) const;
+    bool operator==(const Version& other) const;
+    bool operator!=(const Version& other) const;
+    bool operator<(const Version& other) const;
+    bool operator>(const Version& other) const;
+    bool operator<=(const Version& other) const;
+    bool operator>=(const Version& other) const;
 
     /**
      * Helper static function to check the compatibility between different versions
@@ -68,7 +70,8 @@ public:
      *
      * @return void
      */
-    static void checkVersionCompatibility(const Version& expectedVersion, const Version& recievedVersion, const VersionType versionType = VersionType::UNKNOWN_VERSION);
+    static void checkVersionCompatibility(const Version& expectedVersion, const Version& recievedVersion,
+                                          const VersionType versionType = VersionType::UNKNOWN_VERSION);
 
     bool checkValidity() const;
 
@@ -81,4 +84,4 @@ private:
     bool isValid = false;
 };
 
-} // namespace elf
+}  // namespace elf

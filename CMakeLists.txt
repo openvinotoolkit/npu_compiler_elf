@@ -5,7 +5,8 @@
 
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 
-include( ./cmake/compiler_linker_options.cmake )
+include(./cmake/compiler_linker_options.cmake)
+include(./cmake/clang_tidy.cmake)
 
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,8 +16,6 @@ set(LIB_NAME npu_elf)
 
 project(${LIB_NAME})
 
-include(cmake/FindFirmwareHeaders.cmake)
-
 include(TestBigEndian)
 TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
 if(IS_BIG_ENDIAN)
@@ -24,6 +23,10 @@ if(IS_BIG_ENDIAN)
 endif()
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "*.hpp" "*.cpp")
+# Drop anything under the build tree: when the binary dir lives inside the source
+# tree, GLOB_RECURSE otherwise sweeps up generated files (e.g. CMake's
+# CMakeCXXCompilerId.cpp) and compiles them into the library, where clang-tidy lints them.
+list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_BINARY_DIR}/.*")
 list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/example/.*")
 list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/tests/.*")
 list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/npu-loader/.*")
@@ -32,6 +35,12 @@ list(FILTER SOURCES EXCLUDE REGEX "${CMAKE_CURRENT_SOURCE_DIR}/allocator_utils/.
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${HEADERS} ${SOURCES})
 
 add_library(${LIB_NAME} STATIC ${SOURCES})
+
+# Use CMake's toolchain-agnostic PIC property instead of a compiler-specific flag (-fPIC).
+# This ensures correct behavior on all platforms (GCC, Clang, etc.) without hardcoding flags.
+if(NOT MSVC)
+    set_target_properties(${LIB_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
 if(MSVC AND BUILD_COMPILER_FOR_DRIVER)
     # For compiler in driver build, npu_elf static lib needs to build with /MT to avoid mismatch with level zero targets.
@@ -68,12 +77,6 @@ target_link_options(${LIB_NAME} PRIVATE
 if(EXTERNAL_DEPS)
     target_link_libraries(${LIB_NAME} PUBLIC ${EXTERNAL_DEPS})
     add_subdirectory(loader)
-    if (UNIX)
-        # we need for fPIC flags because `npu_elf` is used for dynamic libraries linkage.
-        # it seems that this option is set implicitly somewhere due to compile flags overriding...
-        # Since `vpux-elf` is expected to be a standalone submodule, we add this option by a purpose
-        set_property(TARGET ${LIB_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
-    endif()
 endif(EXTERNAL_DEPS)
 
 if(NOT BUILD_SHARED_LIBS)
@@ -98,44 +101,15 @@ endif()
 
 target_compile_definitions(${LIB_NAME} PRIVATE $<$<NOT:$<CONFIG:Release>>:NRELEASE>)
 
-# Local copy of nnrt headers should only be used by testing infrastructure
-# Not to be used in production environment!
-if(ENABLE_LOCAL_NNRT_API OR ENABLE_ELF_TESTS OR ENABLE_NPU_LOADER)
-    set(NNRT_API_HEADER "${PROJECT_SOURCE_DIR}/3rdparty/nnrt_api/api/vpu_nnrt_api.h")
-    if(NOT EXISTS "${NNRT_API_HEADER}")
-        find_program(PATCH_EXECUTABLE patch)
-        if(NOT PATCH_EXECUTABLE)
-            message(FATAL_ERROR "ENABLE_ELF_TESTS requires 'patch' utility to restore 3rdparty/nnrt_api")
-        endif()
-
-        message(STATUS "ENABLE_ELF_TESTS is ON: restoring 3rdparty/nnrt_api from cmake/patches/nnrt_api.patch")
-        execute_process(
-            COMMAND "${PATCH_EXECUTABLE}" --forward -p1 -i "${PROJECT_SOURCE_DIR}/cmake/patches/nnrt_api.patch"
-            WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
-            RESULT_VARIABLE NNRT_PATCH_RESULT
-            OUTPUT_VARIABLE NNRT_PATCH_OUTPUT
-            ERROR_VARIABLE NNRT_PATCH_ERROR)
-
-        target_include_directories(${LIB_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/3rdparty/nnrt_api/")
-
-        # Ensure `make clean` also drops restored test-only headers.
-        set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
-        "${PROJECT_SOURCE_DIR}/3rdparty")
-
-        if(NOT NNRT_PATCH_RESULT EQUAL 0)
-            message(FATAL_ERROR "Failed to apply nnrt_api patch. patch stdout: ${NNRT_PATCH_OUTPUT}; patch stderr: ${NNRT_PATCH_ERROR}")
-        endif()
-    endif()
-endif()
+target_include_directories(${LIB_NAME} SYSTEM PRIVATE "${PROJECT_SOURCE_DIR}/3rdparty/nnrt")
 
 if(ENABLE_NPU_LOADER)
-    include( ./cmake/gflags.cmake)
+    include(./cmake/gflags.cmake)
     add_subdirectory(./npu-loader)
 endif()
 
 if(ENABLE_ELF_TESTS)
-    include( ./cmake/gtest.cmake)
-
+    include(./cmake/gtest.cmake)
     add_subdirectory(./allocator_utils)
     add_subdirectory(./tests)
 endif()

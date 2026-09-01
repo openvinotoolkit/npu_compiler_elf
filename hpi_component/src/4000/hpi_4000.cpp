@@ -15,22 +15,12 @@
 
 #include <vector>
 #include <string>
-#include <vector>
 #include <array>
 #include <cstring>
 
-#include <api/vpu_nnrt_api.h>
+#include <nnrt_headers_40xx.hpp>
 
 // clang-format on
-
-namespace { // NNRT api defines. Must not be changed. Required for LNL PV
-            // compatibility.
-constexpr uint32_t VPU_METADATA_STORAGE_ADDR = 0x40203c00;
-constexpr uint32_t VPU_WORKSPACE_ADDR = 0x40218000;
-constexpr uint32_t VPU_WORKSPACE_SIZE_IN_BYTES = 1440 * 1024;
-constexpr uint32_t VPU_MAX_TILES = 6;
-} // namespace
-
 
 namespace elf {
 
@@ -53,10 +43,25 @@ const std::array<uint64_t, VPU_SCALABILITY_VALUES_PER_FREQ> byBWTicks({10UL, 12U
 
 namespace {
 
-constexpr uint32_t VPUX40XX_VERSION_MAJOR = 1;
-constexpr uint32_t VPUX40XX_VERSION_MINOR = 3;
-constexpr uint32_t VPUX40XX_VERSION_PATCH = 2;
+constexpr uint32_t NPU40XX_VERSION_MAJOR = 1;
+constexpr uint32_t NPU40XX_VERSION_MINOR = 4;
+constexpr uint32_t NPU40XX_VERSION_PATCH = 0;
 
+// 1.4.0
+// - Add relocations for dynamic strides bit relocations.
+//
+// 1.3.6
+// - Fix DMA address multiplication overflow in calculateDmaAddress
+//
+// 1.3.5
+// - allow normalized 0 alignment
+//
+// 1.3.4
+// - Fix DMA JIT user-stride copy size to avoid out-of-bounds read
+//
+// 1.3.3
+// - Add support for VPU_SHT_COMPATIBILITY_STRING section type
+//
 // 1.3.2
 // - Fix header offset overflow in Reader when section table offset is close to file size limit
 //
@@ -132,7 +137,7 @@ void HostParsedInference_4000_Base::setHostParsedInference(DeviceBuffer& devBuff
 }
 
 elf::Version HostParsedInference_4000_Base::getELFLibABIVersion() const {
-    return {VPUX40XX_VERSION_MAJOR, VPUX40XX_VERSION_MINOR, VPUX40XX_VERSION_PATCH};
+    return {NPU40XX_VERSION_MAJOR, NPU40XX_VERSION_MINOR, NPU40XX_VERSION_PATCH};
 }
 
 elf::Version HostParsedInference_4000_Base::getStaticMIVersion() const {
@@ -140,7 +145,11 @@ elf::Version HostParsedInference_4000_Base::getStaticMIVersion() const {
 }
 
 uint32_t HostParsedInference_4000_Base::getArchTilesCount() const {
-    return VPU_MAX_TILES;
+    // don't use NNRT API headers to avoid dependency on vpu_nnrt_api_40xx.h
+    // which brings dependency on other unrelated NNRT API headers (e.g. WLM)
+    // remove this API, as it's in fact 37xx-specific, once specific-arch-only
+    // builds are removed from the library
+    return 6;
 }
 
 HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archKind)
@@ -152,7 +161,7 @@ HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archK
         metadata.st_info = static_cast<unsigned char>(elf64STInfo(elf::STB_GLOBAL, elf::STT_OBJECT));
         metadata.st_other = STV_DEFAULT;
         metadata.st_shndx = 0;
-        metadata.st_value = static_cast<uint64_t>(VPU_METADATA_STORAGE_ADDR);
+        metadata.st_value = static_cast<uint64_t>(elf::nn_public::VPU_METADATA_STORAGE_ADDR);
         metadata.st_size = 0;
         metadata.st_name = 0;
 
@@ -165,8 +174,8 @@ HostParsedInference_4000::HostParsedInference_4000(elf::platform::ArchKind archK
         cmxWorkspace.st_info = static_cast<unsigned char>(elf64STInfo(elf::STB_GLOBAL, elf::STT_OBJECT));
         cmxWorkspace.st_other = STV_DEFAULT;
         cmxWorkspace.st_shndx = 0;
-        cmxWorkspace.st_value = VPU_WORKSPACE_ADDR;
-        cmxWorkspace.st_size = VPU_WORKSPACE_SIZE_IN_BYTES;
+        cmxWorkspace.st_value = elf::nn_public::VPU_WORKSPACE_ADDR;
+        cmxWorkspace.st_size = elf::nn_public::VPU_WORKSPACE_SIZE;
         cmxWorkspace.st_name = 0;
 
         symTab_.push_back(cmxWorkspace);

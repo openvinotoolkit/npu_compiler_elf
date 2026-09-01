@@ -74,14 +74,14 @@ struct ReaderTestScenario {
 };
 
 // Helper to build a test ELF buffer from file header and section headers
-std::vector<uint8_t> buildTestBuffer(const ELFHeader& fileHeader,
-                                      const std::vector<SectionHeader>& sectionHeaders,
-                                      size_t minSize = 0) {
+std::vector<uint8_t> buildTestBuffer(const ELFHeader& fileHeader, const std::vector<SectionHeader>& sectionHeaders,
+                                     size_t minSize = 0) {
     std::vector<uint8_t> buffer;
     buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(&fileHeader),
                   reinterpret_cast<const uint8_t*>(&fileHeader) + sizeof(fileHeader));
-    buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(sectionHeaders.data()),
-                  reinterpret_cast<const uint8_t*>(sectionHeaders.data()) + sectionHeaders.size() * sizeof(SectionHeader));
+    buffer.insert(
+            buffer.end(), reinterpret_cast<const uint8_t*>(sectionHeaders.data()),
+            reinterpret_cast<const uint8_t*>(sectionHeaders.data()) + sectionHeaders.size() * sizeof(SectionHeader));
     buffer.push_back('\0');
 
     if (buffer.size() < minSize) {
@@ -121,6 +121,16 @@ void expectReaderThrowsRangeError(std::vector<uint8_t>& buffer, const char* expe
         FAIL() << "Expected RangeError to be thrown";
     } catch (const RangeError& err) {
         ASSERT_NE(std::strstr(err.what(), expectedMessagePart), nullptr);
+    }
+}
+
+void expectReaderThrowsRangeError(std::vector<uint8_t>& buffer, ErrorCode expectedErrorCode) {
+    auto accessor = DDRAccessManager<elf::DDRAlwaysEmplace>(buffer.data(), buffer.size());
+    try {
+        (void)Reader<ELF_Bitness::Elf64>(&accessor);
+        FAIL() << "Expected RangeError to be thrown";
+    } catch (const RangeError& err) {
+        ASSERT_EQ(err.error_code, expectedErrorCode);
     }
 }
 
@@ -457,7 +467,7 @@ TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionsOverlap) {
 
     const auto neededSize = payloadSectionOffset + 2 * payloadSectionSize;
     auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
-    expectReaderThrowsRangeError(buffer, "Section overlaps next section");
+    expectReaderThrowsRangeError(buffer, ErrorCode::ELF_ERROR_RANGE_SECTION_OVERLAPS_NEXT_SECTION);
 }
 
 TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionRunsWayPastNextSection) {
@@ -477,7 +487,7 @@ TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionRunsWayPastNextSection) {
 
     const auto neededSize = payloadSectionOffset + longPayloadSectionSize;
     auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
-    expectReaderThrowsRangeError(buffer, "Section overlaps next section");
+    expectReaderThrowsRangeError(buffer, ErrorCode::ELF_ERROR_RANGE_SECTION_OVERLAPS_NEXT_SECTION);
 }
 
 TEST(ELFReaderTests, ReaderDoesntThrowWhenPayloadSectionsAreUnorderedButNonOverlapping) {
@@ -526,7 +536,7 @@ TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionsAreUnorderedButOverlapping) 
 
     const auto neededSize = payloadBaseOffset + 35;
     auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
-    expectReaderThrowsRangeError(buffer, "Section overlaps next section");
+    expectReaderThrowsRangeError(buffer, ErrorCode::ELF_ERROR_RANGE_SECTION_OVERLAPS_NEXT_SECTION);
 }
 
 TEST(ELFReaderTests, ReaderDoesntThrowForSpecialCaseSectionTypes) {
@@ -613,7 +623,7 @@ TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionCOverlapsWithASeparatedByZero
 
     const auto neededSize = offsetC + sizeC;
     auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
-    expectReaderThrowsRangeError(buffer, "Section overlaps next section");
+    expectReaderThrowsRangeError(buffer, ErrorCode::ELF_ERROR_RANGE_SECTION_OVERLAPS_NEXT_SECTION);
 }
 
 TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionExtendsBeyondFileBounds) {
@@ -637,7 +647,7 @@ TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionExtendsBeyondFileBounds) {
     // Create buffer that's smaller than needed for the section
     const auto neededSize = offsetA + 50;  // Only 50 bytes, but section requests 100
     auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
-    expectReaderThrowsRangeError(buffer, "Section range does not fit in file");
+    expectReaderThrowsRangeError(buffer, ErrorCode::ELF_ERROR_RANGE_SECTION_READ_GOES_OVER_END_OF_FILE);
 }
 
 TEST(ELFReaderTests, ReaderThrowsWhenNoBitsSectionExtendsBeyondFileBounds) {
@@ -664,5 +674,44 @@ TEST(ELFReaderTests, ReaderThrowsWhenNoBitsSectionExtendsBeyondFileBounds) {
 
     const auto neededSize = offsetA + 50;
     auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
-    expectReaderThrowsRangeError(buffer, "Section range does not fit in file");
+    expectReaderThrowsRangeError(buffer, ErrorCode::ELF_ERROR_RANGE_SECTION_READ_GOES_OVER_END_OF_FILE);
 }
+
+namespace {
+// Parameterized test for section alignment validation
+struct AlignmentCase {
+    Elf_Word alignment;
+    bool shouldThrow;
+};
+
+class ELFReaderAlignmentTests : public ::testing::TestWithParam<AlignmentCase> {};
+
+TEST_P(ELFReaderAlignmentTests, ReaderHandlesSectionAlignmentZeroOneAndInvalidThree) {
+    const auto testCase = GetParam();
+    SCOPED_TRACE(::testing::Message() << "alignment=" << testCase.alignment);
+
+    auto scenario = createReaderTestScenario(3, 2);
+
+    constexpr Elf_Word payloadSectionSize = 16;
+    setPayloadSection(scenario.sectionHeaders, indexToCheck, scenario.sectionNamesOffset + secHeaderStrIdxSecSize,
+                      payloadSectionSize);
+    scenario.sectionHeaders[indexToCheck].sh_addralign = testCase.alignment;
+
+    const auto neededSize = scenario.sectionHeaders[indexToCheck].sh_offset + payloadSectionSize;
+    auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
+
+    auto accessor = DDRAccessManager<elf::DDRStandardEmplace, elf::DynamicBufferFactory>(buffer.data(), buffer.size());
+    const auto constructReader = [&]() {
+        return Reader<ELF_Bitness::Elf64>(&accessor);
+    };
+
+    if (testCase.shouldThrow) {
+        ASSERT_THROW((void)constructReader(), SectionError);
+    } else {
+        OV_ASSERT_NO_THROW((void)constructReader());
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(SectionAlignmentValidation, ELFReaderAlignmentTests,
+                         ::testing::Values(AlignmentCase{0, false}, AlignmentCase{1, false}, AlignmentCase{3, true}));
+}  // namespace

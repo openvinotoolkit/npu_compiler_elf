@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -25,5 +25,5 @@ private:
     friend Writer;
 };
 
-} // namespace writer
-} // namespace elf
+}  // namespace writer
+}  // namespace elf

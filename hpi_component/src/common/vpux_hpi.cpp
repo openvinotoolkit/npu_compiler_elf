@@ -61,13 +61,13 @@ platform::ArchKind archFromDeviceId(uint32_t deviceId) {
     switch (deviceId) {
     case 0x7D1D:  // MeteorLake (MTL-P, MTL-H)
     case 0xAD1D:  // ArrowLake (ARL)
-        return platform::ArchKind::VPUX37XX;
+        return platform::ArchKind::NPU3720;
     case 0x643E:  // LunarLake (LNL)
-        return platform::ArchKind::VPUX40XX;
+        return platform::ArchKind::NPU4000;
     case 0xB03E:  // PantherLake Mobile (PTL-P)
-        return platform::ArchKind::VPUX501X;
+        return platform::ArchKind::NPU5010;
     case 0xFD3E:  // Wildcatlake (WCL)
-        return platform::ArchKind::VPUX502X;
+        return platform::ArchKind::NPU5020;
     default:
         VPUX_ELF_LOG(LogLevel::LOG_ERROR, "Unrecognized device ID");
         return platform::ArchKind::UNKNOWN;
@@ -122,9 +122,28 @@ void HostParsedInference::checkCompilerHash() {
     VPUX_ELF_THROW_WHEN(sections.size() > 1, RangeError, "Expected only one Compiler Hash section.");
 }
 
+std::optional<std::string> HostParsedInference::readCompatibilityString() const {
+    const auto& sections = loaders.front()->getSectionsOfType(elf::VPU_SHT_COMPATIBILITY_STRING);
+    if (sections.empty()) {
+        return std::nullopt;
+    }
+    VPUX_ELF_THROW_WHEN(sections.size() > 1, RangeError, "Expected at most one compatibility string section",
+                        ErrorCode::ELF_ERROR_RANGE_EXPECTED_AT_MOST_ONE_SECTION);
+
+    auto sectionLock = ElfBufferLockGuard(sections[0].get());
+    const auto size = sections[0]->getBuffer().size();
+    const auto* ptr = reinterpret_cast<const char*>(sections[0]->getBuffer().cpu_addr());
+    VPUX_ELF_THROW_WHEN(ptr == nullptr, AccessError, "Compatibility string section is nullptr",
+                        ErrorCode::ELF_ERROR_ACCESS_NULL_PTR);
+    VPUX_ELF_THROW_WHEN(size == 0, RangeError, "Compatibility string section size is zero",
+                        ErrorCode::ELF_ERROR_RANGE_SECTION_SIZE_IS_ZERO);
+
+    return std::string(ptr, std::find(ptr, ptr + size, '\0'));
+}
+
 elf::Version HostParsedInference::readVersioningInfo(uint32_t versionType) const {
     const auto& noteSections = loaders.front()->getSectionsOfType(elf::SHT_NOTE);
-    for (auto section : noteSections) {
+    for (const auto& section : noteSections) {
         VPUX_ELF_THROW_UNLESS(section->getBuffer().size() == sizeof(elf::elf_note::VersionNote), SectionError,
                               "Wrong Versioning Note size");
 
@@ -157,6 +176,32 @@ elf::Version HostParsedInference::getLibraryMIVersion() const {
 
 size_t HostParsedInference::getHPISize() const {
     return HostParsedInferenceCommon::getArchSpecificHPI(archKind)->getParsedInferenceBufferSpecs().size;
+}
+
+void HostParsedInference::createParsedInference(HostParsedInferenceCommon& archSpecificHpi,
+                                                const std::vector<uint64_t>& entriesVct, bool refreshPerfMetrics) {
+    if (auto parsedInferenceFromSection = loaders.front()->getHPISection()) {
+        parsedInference = parsedInferenceFromSection;
+        const auto expectedSize = archSpecificHpi.getParsedInferenceBufferSpecs().size;
+
+        // the allocated size should be at least the size of the HostParsedInference struct.
+        VPUX_ELF_THROW_UNLESS(parsedInferenceFromSection->getBuffer().size() >= expectedSize, SectionError,
+                              "VPU_SHT_HPI section size is smaller than expected.");
+    } else {
+        parsedInference =
+                std::make_shared<AllocatedDeviceBuffer>(bufferManager, archSpecificHpi.getParsedInferenceBufferSpecs());
+        auto parsedInferenceLock = ElfBufferLockGuard(parsedInference.get());
+
+        auto parsedInferenceBuffer = parsedInference->getBuffer();
+        if (refreshPerfMetrics) {
+            perfMetrics = readPerfMetrics();
+        }
+        auto perfMetricsLock = ElfBufferLockGuard(perfMetrics.get());
+        auto perfMetricsPtr = perfMetrics ? reinterpret_cast<uint64_t*>(perfMetrics->getBuffer().cpu_addr()) : nullptr;
+        auto perfMetricsSize = perfMetrics ? static_cast<uint64_t>(perfMetrics->getBuffer().size()) : uint64_t{0};
+        archSpecificHpi.setHostParsedInference(parsedInferenceBuffer, entriesVct, metadata->mResourceRequirements,
+                                               perfMetricsPtr, miVersion, perfMetricsSize);
+    }
 }
 
 HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager* accessMgr, elf::HPIConfigs hpiConfigs,
@@ -218,7 +263,7 @@ HostParsedInference::HostParsedInference(BufferManager* bufferMgr, AccessManager
     checkTileCountCompatibility(blobTileCount, hwTileCount);
 
     if (blobTileCount > hwTileCount / 2 && archKind != elf::platform::ArchKind::VPUX30XX &&
-        archKind != elf::platform::ArchKind::VPUX37XX) {
+        archKind != elf::platform::ArchKind::NPU3720) {
         loaders.front()->setInferencesMayBeRunInParallel(false);
     }
 }
@@ -231,7 +276,7 @@ void HostParsedInference::load() {
     auto explicitAllocationsEnabled = archSpecificHpi->getExplicitAllocationsEnabled();
 
     std::vector<uint64_t> entriesVct;
-    if (platformInfo->mArchKind == elf::platform::ArchKind::VPUX37XX &&
+    if (platformInfo->mArchKind == elf::platform::ArchKind::NPU3720 &&
         metadata->mResourceRequirements.nn_slice_count_ < archSpecificHpi->getArchTilesCount()) {
         entries = std::make_shared<AllocatedDeviceBuffer>(
                 bufferManager, archSpecificHpi->getEntryBufferSpecs(archSpecificHpi->getArchTilesCount()));
@@ -255,8 +300,8 @@ void HostParsedInference::load() {
             }
             auto entryDeviceBuffer = loaders[idx]->getEntry();
             auto entryLock = ElfBufferLockGuard(entryDeviceBuffer.get());
-            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize,
-                                  SectionError, "Entry section is smaller than VpuMappedInference");
+            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize, SectionError,
+                                  "Entry section is smaller than VpuMappedInference");
 
             std::memcpy(entries->getBuffer().cpu_addr() + idx * entrySize,
                         (void*)entryDeviceBuffer->getBuffer().cpu_addr(), entrySize);
@@ -268,17 +313,7 @@ void HostParsedInference::load() {
         entriesVct.push_back(loaders.front()->getEntry()->getBuffer().vpu_addr());
     }
 
-    parsedInference =
-            std::make_shared<AllocatedDeviceBuffer>(bufferManager, archSpecificHpi->getParsedInferenceBufferSpecs());
-    auto parsedInferenceLock = ElfBufferLockGuard(parsedInference.get());
-
-    auto parsedInferenceBuffer = parsedInference->getBuffer();
-    perfMetrics = readPerfMetrics();
-    auto perfMetricsLock = ElfBufferLockGuard(perfMetrics.get());
-    auto perfMetricsPtr = perfMetrics ? reinterpret_cast<uint64_t*>(perfMetrics->getBuffer().cpu_addr()) : nullptr;
-    auto perfMetricsSize = perfMetrics ? static_cast<uint64_t>(perfMetrics->getBuffer().size()) : uint64_t{0};
-    archSpecificHpi->setHostParsedInference(parsedInferenceBuffer, entriesVct, metadata->mResourceRequirements,
-                                            perfMetricsPtr, miVersion, perfMetricsSize);
+    createParsedInference(*archSpecificHpi, entriesVct, true);
 }
 
 HostParsedInference::HostParsedInference(const HostParsedInference& other)
@@ -294,7 +329,7 @@ HostParsedInference::HostParsedInference(const HostParsedInference& other)
     loaders.reserve(other.loaders.size());
     std::vector<uint64_t> entriesVct;
     entriesVct.reserve(other.loaders.size());
-    if (platformInfo->mArchKind == elf::platform::ArchKind::VPUX37XX &&
+    if (platformInfo->mArchKind == elf::platform::ArchKind::NPU3720 &&
         metadata->mResourceRequirements.nn_slice_count_ < archSpecificHpi->getArchTilesCount()) {
         entries = std::make_shared<AllocatedDeviceBuffer>(bufferManager,
                                                           archSpecificHpi->getEntryBufferSpecs(other.loaders.size()));
@@ -307,8 +342,8 @@ HostParsedInference::HostParsedInference(const HostParsedInference& other)
 
             auto entryDeviceBuffer = loaders[idx]->getEntry();
             auto entryLock = ElfBufferLockGuard(entryDeviceBuffer.get());
-            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize,
-                                  SectionError, "Entry section is smaller than VpuMappedInference");
+            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize, SectionError,
+                                  "Entry section is smaller than VpuMappedInference");
 
             std::memcpy(entries->getBuffer().cpu_addr() + idx * entrySize,
                         (void*)entryDeviceBuffer->getBuffer().cpu_addr(), entrySize);
@@ -319,17 +354,7 @@ HostParsedInference::HostParsedInference(const HostParsedInference& other)
         entriesVct.push_back(loaders.front()->getEntry()->getBuffer().vpu_addr());
     }
 
-    // Every new loader object means a new parsedInference struct as well
-    parsedInference =
-            std::make_shared<AllocatedDeviceBuffer>(bufferManager, archSpecificHpi->getParsedInferenceBufferSpecs());
-    auto parsedInferenceLock = ElfBufferLockGuard(parsedInference.get());
-
-    auto parsedInferenceBuffer = parsedInference->getBuffer();
-    auto perfMetricsLock = ElfBufferLockGuard(perfMetrics.get());
-    auto perfMetricsPtr = perfMetrics ? reinterpret_cast<uint64_t*>(perfMetrics->getBuffer().cpu_addr()) : nullptr;
-    auto perfMetricsSize = perfMetrics ? static_cast<uint64_t>(perfMetrics->getBuffer().size()) : uint64_t{0};
-    archSpecificHpi->setHostParsedInference(parsedInferenceBuffer, entriesVct, metadata->mResourceRequirements,
-                                            perfMetricsPtr, miVersion, perfMetricsSize);
+    createParsedInference(*archSpecificHpi, entriesVct, false);
 };
 
 HostParsedInference::HostParsedInference(HostParsedInference&& other)
@@ -364,7 +389,7 @@ HostParsedInference& HostParsedInference::operator=(const HostParsedInference& r
     loaders.reserve(rhs.loaders.size());
     std::vector<uint64_t> entriesVct;
     entriesVct.reserve(rhs.loaders.size());
-    if (platformInfo->mArchKind == elf::platform::ArchKind::VPUX37XX &&
+    if (platformInfo->mArchKind == elf::platform::ArchKind::NPU3720 &&
         metadata->mResourceRequirements.nn_slice_count_ < archSpecificHpi->getArchTilesCount()) {
         entries = std::make_unique<AllocatedDeviceBuffer>(bufferManager,
                                                           archSpecificHpi->getEntryBufferSpecs(rhs.loaders.size()));
@@ -377,8 +402,8 @@ HostParsedInference& HostParsedInference::operator=(const HostParsedInference& r
 
             auto entryDeviceBuffer = loaders[idx]->getEntry();
             auto entryLock = ElfBufferLockGuard(entryDeviceBuffer.get());
-            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize,
-                                  SectionError, "Entry section is smaller than VpuMappedInference");
+            VPUX_ELF_THROW_UNLESS(entryDeviceBuffer && entryDeviceBuffer->getBuffer().size() >= entrySize, SectionError,
+                                  "Entry section is smaller than VpuMappedInference");
 
             std::memcpy(entries->getBuffer().cpu_addr() + idx * entrySize,
                         (void*)entryDeviceBuffer->getBuffer().cpu_addr(), entrySize);
@@ -388,17 +413,8 @@ HostParsedInference& HostParsedInference::operator=(const HostParsedInference& r
         loaders.push_back(std::make_unique<VPUXLoader>(*rhs.loaders.front()));
         entriesVct.push_back(loaders.front()->getEntry()->getBuffer().vpu_addr());
     }
-    // Every new loader object means a new parsedInference struct as well
-    parsedInference =
-            std::make_shared<AllocatedDeviceBuffer>(bufferManager, archSpecificHpi->getParsedInferenceBufferSpecs());
-    auto parsedInferenceLock = ElfBufferLockGuard(parsedInference.get());
 
-    auto parsedInferenceBuffer = parsedInference->getBuffer();
-    auto perfMetricsLock = ElfBufferLockGuard(perfMetrics.get());
-    auto perfMetricsPtr = perfMetrics ? reinterpret_cast<uint64_t*>(perfMetrics->getBuffer().cpu_addr()) : nullptr;
-    auto perfMetricsSize = perfMetrics ? static_cast<uint64_t>(perfMetrics->getBuffer().size()) : uint64_t{0};
-    archSpecificHpi->setHostParsedInference(parsedInferenceBuffer, entriesVct, metadata->mResourceRequirements,
-                                            perfMetricsPtr, miVersion, perfMetricsSize);
+    createParsedInference(*archSpecificHpi, entriesVct, false);
 
     return *this;
 }
@@ -434,7 +450,10 @@ std::vector<DeviceBuffer> HostParsedInference::getAllocatedBuffers() const {
         vct.push_back(entries->getBuffer());
     }
 
-    vct.push_back(parsedInference->getBuffer());
+    const auto parsedInferenceOwnedByLoader = (loaders.front()->getHPISection() == parsedInference);
+    if (!parsedInferenceOwnedByLoader) {
+        vct.push_back(parsedInference->getBuffer());
+    }
 
     return vct;
 }

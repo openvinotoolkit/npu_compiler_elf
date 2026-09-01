@@ -26,19 +26,19 @@ std::unique_ptr<HostParsedInferenceCommon> HostParsedInferenceCommon::getArchSpe
     std::unique_ptr<HostParsedInferenceCommon> archSpecificHPI;
     switch (archKind) {
 #if defined(CONFIG_TARGET_SOC_3720) || defined(HOST_BUILD)
-    case elf::platform::ArchKind::VPUX37XX:
+    case elf::platform::ArchKind::NPU3720:
         archSpecificHPI = std::make_unique<HostParsedInference_3720>();
         break;
 #endif
 
 #if defined(CONFIG_TARGET_SOC_4000) || defined(HOST_BUILD)
-    case elf::platform::ArchKind::VPUX40XX:
+    case elf::platform::ArchKind::NPU4000:
         archSpecificHPI = std::make_unique<HostParsedInference_4000>(archKind);
         break;
 #endif
 #if defined(CONFIG_TARGET_SOC_5000) || defined(HOST_BUILD)
-    case elf::platform::ArchKind::VPUX501X:
-    case elf::platform::ArchKind::VPUX502X:
+    case elf::platform::ArchKind::NPU5010:
+    case elf::platform::ArchKind::NPU5020:
         archSpecificHPI = std::make_unique<HostParsedInference_5000>(archKind);
         break;
 #endif

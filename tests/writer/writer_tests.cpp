@@ -211,9 +211,16 @@ TEST(ELFWriter, DmaSymbolSection) {
     auto dmaSymbolSection = writer.addDmaSymbolSection(testName);
     auto dmaSymbol = dmaSymbolSection->addDmaSymbolEntry();
 
-    elf::DmaSymbolEntry expectedDmaSymbolEntry{
-            1, 0xB, {1, 1, 1, 1, 1, 1}, {1, 2, 3, 4, 5, 6}, {0, 0, 1, 0, 0, 0}, {1, 1, 1, 1, 1, 1}, {1, 2, 3, 4, 5, 6},
-            4};
+    elf::DmaSymbolEntry expectedDmaSymbolEntry{1,
+                                               {},
+                                               0xB,
+                                               {1, 1, 1, 1, 1, 1},
+                                               {1, 2, 3, 4, 5, 6},
+                                               {0, 0, 1, 0, 0, 0},
+                                               {1, 1, 1, 1, 1, 1},
+                                               {1, 2, 3, 4, 5, 6},
+                                               4,
+                                               {}};
     dmaSymbol->setDmaSymbol(expectedDmaSymbolEntry);
 
     writer.prepareWriter();
@@ -364,9 +371,16 @@ TEST(ELFWriter, RelocationSectionForDmaSymbols) {
     auto refSymbolSection = writer.addDmaSymbolSection(testSymbolSection);
     auto refSymbol = refSymbolSection->addDmaSymbolEntry();
 
-    elf::DmaSymbolEntry expectedDmaSymbolEntry{
-            1, 0xB, {1, 1, 1, 1, 1, 1}, {1, 2, 3, 4, 5, 6}, {0, 0, 1, 0, 0, 0}, {1, 1, 1, 1, 1, 1}, {1, 2, 3, 4, 5, 6},
-            4};
+    elf::DmaSymbolEntry expectedDmaSymbolEntry{1,
+                                               {},
+                                               0xB,
+                                               {1, 1, 1, 1, 1, 1},
+                                               {1, 2, 3, 4, 5, 6},
+                                               {0, 0, 1, 0, 0, 0},
+                                               {1, 1, 1, 1, 1, 1},
+                                               {1, 2, 3, 4, 5, 6},
+                                               4,
+                                               {}};
     refSymbol->setDmaSymbol(expectedDmaSymbolEntry);
 
     auto refRelocationSection = writer.addRelocationSection(testRelocationName);

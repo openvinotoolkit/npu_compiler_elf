@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include <optional>
+
 #include "hpi_common_interface.hpp"
 #include "vpux_elf/utils/error.hpp"
 #include "vpux_elf/utils/version.hpp"
@@ -11,21 +13,19 @@
 
 #include "compat_string_parser.hpp"
 
-#include <sstream>
-
 namespace elf {
 namespace {
 
 platform::ArchKind archFromPlatform(uint64_t platform) {
     switch (platform) {
     case 3720:
-        return platform::ArchKind::VPUX37XX;
+        return platform::ArchKind::NPU3720;
     case 4000:
-        return platform::ArchKind::VPUX40XX;
+        return platform::ArchKind::NPU4000;
     case 5010:
-        return platform::ArchKind::VPUX501X;
+        return platform::ArchKind::NPU5010;
     case 5020:
-        return platform::ArchKind::VPUX502X;
+        return platform::ArchKind::NPU5020;
     }
     VPUX_ELF_THROW(RuntimeError, "Invalid platform");
 }
@@ -75,7 +75,8 @@ Version parseVersion(const std::string& str) {
 
 }  // namespace
 
-void checkCompatibilityString(const DeviceDescriptor& deviceDescriptor, const std::string& compatibilityString) {
+void checkCompatibilityString(const DeviceDescriptor& deviceDescriptor, const std::string& compatibilityString,
+                              std::optional<elf::Version> fwMIVersion) {
     compat::Parser parser(compatibilityString, std::array{"compiler", "npu", "t", "elf", "mi"});
 
     // compatibility string contains NPU Platform, which is a enum different from ArchKind
@@ -88,7 +89,7 @@ void checkCompatibilityString(const DeviceDescriptor& deviceDescriptor, const st
     const auto hwArchKind = archFromDeviceId(deviceDescriptor.deviceID);
     const auto archHpi = HostParsedInferenceCommon::getArchSpecificHPI(hwArchKind);
     const auto libElfVersion = archHpi->getELFLibABIVersion();
-    const auto libMIVersion = archHpi->getStaticMIVersion();
+    const auto libMIVersion = fwMIVersion.value_or(archHpi->getStaticMIVersion());
 
     checkPlatformCompatibility(blobArchKind, hwArchKind);
     checkTileCountCompatibility(blobTileCount, deviceDescriptor.tileCount);

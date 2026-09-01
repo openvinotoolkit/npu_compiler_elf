@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -12,7 +12,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-Symbol::Symbol(const std::string& name) : m_name(name) {
+Symbol::Symbol(const std::string& name): m_name(name) {
     m_symbol.st_name = 0;
     m_symbol.st_info = static_cast<uint8_t>(elf64STInfo(STB_LOCAL, STT_NOTYPE));
     m_symbol.st_other = elf64STVisibility(STV_DEFAULT);

@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2025 Intel Corporation
+// Copyright (C) 2025-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -20,8 +20,13 @@ void reduceDmaDims(const uint32_t (&dmaShapes)[DMA_SYMBOL_MAX_TENSOR_DIMENSIONS]
 uint64_t calculateDmaAddress(uint64_t address, const uint32_t (&tileOffsets)[DMA_SYMBOL_MAX_TENSOR_DIMENSIONS],
                              const uint32_t (&strides)[DMA_SYMBOL_MAX_TENSOR_DIMENSIONS], const uint32_t dmaSize);
 
+uint64_t calculateDmaBitAddress(uint64_t address, const uint32_t (&tileOffsets)[DMA_SYMBOL_MAX_TENSOR_DIMENSIONS],
+                                const uint32_t (&strides)[DMA_SYMBOL_MAX_TENSOR_DIMENSIONS], const uint32_t dmaSize);
+
 void dmaTaskInputRelocation(void* targetAddr, const DmaSymbolEntry& sym, const Elf_Sxword);
 void dmaTaskOutputRelocation(void* targetAddr, const DmaSymbolEntry& sym, const Elf_Sxword);
+void dmaTaskInputBitRelocation(void* targetAddr, const DmaSymbolEntry& sym, const Elf_Sxword);
+void dmaTaskOutputBitRelocation(void* targetAddr, const DmaSymbolEntry& sym, const Elf_Sxword);
 
 }  // namespace relocations
 }  // namespace elf

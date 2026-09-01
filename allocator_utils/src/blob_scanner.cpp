@@ -10,10 +10,13 @@ std::vector<const std::pair<const std::string, MemoryRequirementsGroup>*> getSor
     std::vector<const std::pair<const std::string, MemoryRequirementsGroup>*> sorted;
     sorted.reserve(memoryReqMap.size());
 
-    for (const auto& entry : memoryReqMap)
+    for (const auto& entry : memoryReqMap) {
         sorted.push_back(&entry);
+    }
 
-    std::sort(sorted.begin(), sorted.end(), [](const auto* a, const auto* b) { return a->first < b->first; });
+    std::sort(sorted.begin(), sorted.end(), [](const auto* a, const auto* b) {
+        return a->first < b->first;
+    });
 
     return sorted;
 }

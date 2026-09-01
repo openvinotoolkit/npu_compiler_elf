@@ -9,13 +9,7 @@
 #include <cstdint>
 #include <cstring>
 
-#if defined(_MSC_VER)
-#define VPUX_ALIGNED_STRUCT(alignment) __declspec(align(alignment))
-#elif defined(__GNUC__) || defined(__clang__)
-#define VPUX_ALIGNED_STRUCT(alignment) __attribute__((aligned(alignment)))
-#else
-#error Define alignment macro
-#endif
+#include <vpux_elf/utils/struct_alignment.hpp>
 
 #pragma pack(push, 1)
 

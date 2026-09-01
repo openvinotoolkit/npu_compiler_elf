@@ -5,7 +5,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
+#include <sstream>
 #include <string>
 
 #include "test_blob/actions_base.hpp"
@@ -37,6 +40,21 @@ struct AddSymbolAttributes {
 
 struct AddDMASymbolAttributes {
     elf::DmaSymbolEntry _symbolEntry = {};
+
+    AddDMASymbolAttributes() {
+        std::memset(&_symbolEntry, 0, sizeof(_symbolEntry));
+    }
+
+    AddDMASymbolAttributes(const elf::DmaSymbolEntry& symbolEntry): AddDMASymbolAttributes() {
+        _symbolEntry.ioIndex = symbolEntry.ioIndex;
+        _symbolEntry.address = symbolEntry.address;
+        std::copy_n(symbolEntry.shapes, elf::DMA_SYMBOL_MAX_TENSOR_DIMENSIONS, _symbolEntry.shapes);
+        std::copy_n(symbolEntry.strides, elf::DMA_SYMBOL_MAX_TENSOR_DIMENSIONS, _symbolEntry.strides);
+        std::copy_n(symbolEntry.tileOffsets, elf::DMA_SYMBOL_MAX_TENSOR_DIMENSIONS, _symbolEntry.tileOffsets);
+        std::copy_n(symbolEntry.dmaShapes, elf::DMA_SYMBOL_MAX_TENSOR_DIMENSIONS, _symbolEntry.dmaShapes);
+        std::copy_n(symbolEntry.dmaStrides, elf::DMA_SYMBOL_MAX_TENSOR_DIMENSIONS, _symbolEntry.dmaStrides);
+        _symbolEntry.dmaSize = symbolEntry.dmaSize;
+    }
 
     std::string getStringified() const {
         std::stringstream stream;

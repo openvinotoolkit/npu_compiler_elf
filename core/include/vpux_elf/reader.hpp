@@ -77,9 +77,10 @@ public:
         // VPU_SHT_CMX_WORKSPACE - does not contain data in the binary file, so avoid reading
             if (!((mHeader->sh_type == SHT_NOBITS) || (mHeader->sh_type == VPU_SHT_CMX_METADATA) ||
                   mHeader->sh_type == VPU_SHT_CMX_WORKSPACE)) {
+                const auto sectionAlignment = utils::normalizeAlignment(mHeader->sh_addralign);
                 buffer = mAccessManager->readInternal(
                         mHeader->sh_offset,
-                        BufferSpecs(mHeader->sh_addralign, mHeader->sh_size, cpuOnlyAccess ? 0 : mHeader->sh_flags));
+                        BufferSpecs(sectionAlignment, mHeader->sh_size, cpuOnlyAccess ? 0 : mHeader->sh_flags));
             }
 
             return buffer;
@@ -135,7 +136,7 @@ public:
                                   "Section name table must contain at least a null terminator");
 
             VPUX_ELF_THROW_UNLESS(secNamesOffset <= mAccessManager->getSize() &&
-                                      secNameSize <= mAccessManager->getSize() - secNamesOffset,
+                                          secNameSize <= mAccessManager->getSize() - secNamesOffset,
                                   HeaderError, "Section name size exceeds buffer size");
 
             mSectionNames.resize(secNameSize);
@@ -209,6 +210,10 @@ private:
         for (size_t i = 0; i < numberOfSections; i++) {
             const auto& secHeader = mSectionHeaders[i];
 
+            const auto sectionAlignment = utils::normalizeAlignment(secHeader.sh_addralign);
+            VPUX_ELF_THROW_UNLESS(utils::isPowerOfTwo(sectionAlignment), SectionError,
+                                  "Section alignment is not a power of 2");
+
             // TODO: E#220889
             if (secHeader.sh_offset == 0 || secHeader.sh_size == 0) {
                 continue;
@@ -216,9 +221,12 @@ private:
 
             const auto sectionOffset = static_cast<size_t>(secHeader.sh_offset);
             const auto sectionSize = static_cast<size_t>(secHeader.sh_size);
-            VPUX_ELF_THROW_UNLESS(sectionOffset <= fileSize && sectionSize <= (fileSize - sectionOffset), RangeError,
-                                  "Section range does not fit in file");
-
+            VPUX_ELF_THROW_UNLESS(sectionOffset <= fileSize, RangeError,
+                                  "Section offset is greater than the file itself",
+                                  ErrorCode::ELF_ERROR_RANGE_SECTION_OFFSET_GREATER_THAN_FILE);
+            VPUX_ELF_THROW_UNLESS(sectionSize <= (fileSize - sectionOffset), RangeError,
+                                  "Section read would go over end of file",
+                                  ErrorCode::ELF_ERROR_RANGE_SECTION_READ_GOES_OVER_END_OF_FILE);
             // Store end offset and index
             sortedRanges.emplace_back(sectionOffset + sectionSize, i);
         }
@@ -233,8 +241,8 @@ private:
             const auto nextOffset = static_cast<size_t>(mSectionHeaders[nextIdx].sh_offset);
 
             // If current section's end is beyond next section's start, they overlap
-            VPUX_ELF_THROW_UNLESS(endCurrent <= nextOffset, RangeError,
-                                  "Section overlaps next section");
+            VPUX_ELF_THROW_UNLESS(endCurrent <= nextOffset, RangeError, "Section overlaps next section",
+                                  ErrorCode::ELF_ERROR_RANGE_SECTION_OVERLAPS_NEXT_SECTION);
         }
     }
 };
