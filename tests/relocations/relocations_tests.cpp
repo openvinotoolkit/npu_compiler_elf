@@ -5,7 +5,7 @@
 
 //
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <gtest/gtest.h>
 #include <nnrt_headers_40xx.hpp>
@@ -45,7 +45,7 @@ struct ReduceDmaTestsParams {
 class ReduceDmaTest : public testing::TestWithParam<ReduceDmaTestsParams> {};
 
 TEST_P(ReduceDmaTest, ReduceResultsAreCorrect) {
-    auto params = GetParam();
+    const auto& params = GetParam();
 
     std::array<uint32_t, DMA_SYMBOL_MAX_TENSOR_DIMENSIONS> reducedDmaShapes{1, 1, 1, 1, 1, 1};
     std::array<uint32_t, DMA_SYMBOL_MAX_TENSOR_DIMENSIONS> reducedDmaStrides{0, 0, 0, 0, 0, 0};
@@ -135,7 +135,7 @@ struct TileAddressCalculationParams {
 class TileAddressCalculationTest : public testing::TestWithParam<TileAddressCalculationParams> {};
 
 TEST_P(TileAddressCalculationTest, ResultsAreCorrect) {
-    auto params = GetParam();
+    const auto& params = GetParam();
 
     auto actualAddress =
             calculateDmaAddress(params.baseAddress, params.tileOffsets, params.strides, params.elementSize);
@@ -190,7 +190,7 @@ struct BitAddressCalculationParams {
 class BitAddressCalculationTest : public testing::TestWithParam<BitAddressCalculationParams> {};
 
 TEST_P(BitAddressCalculationTest, ResultsAreCorrect) {
-    auto params = GetParam();
+    const auto& params = GetParam();
 
     uint64_t actualAddress = 0;
     OV_ASSERT_NO_THROW(actualAddress = calculateDmaBitAddress(params.baseAddress, params.tileOffsets, params.strides,

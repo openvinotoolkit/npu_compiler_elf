@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2025 Intel Corporation
+// Copyright (C) 2025-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -25,7 +25,7 @@ public:
         sh_info = info;
     }
 
-    uint32_t getInfo() {
+    uint32_t getInfo() const {
         return sh_info;
     }
 
@@ -36,7 +36,7 @@ private:
 
 private:
     std::vector<std::unique_ptr<DmaSymbol>> m_symbols;
-    uint32_t sh_info;
+    uint32_t sh_info = 0;
 
     friend Writer;
 };

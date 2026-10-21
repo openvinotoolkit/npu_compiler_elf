@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -58,7 +58,7 @@ public:
     void shiftCurrentWriteAddr(size_t shiftInBytes);
 
 protected:
-    explicit Section(const std::string& name = {});
+    explicit Section(std::string name = {});
 
     virtual void finalize();
 

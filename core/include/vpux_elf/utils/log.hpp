@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -32,7 +32,7 @@ public:
     void logprintf(const LogLevel& level, const char* func, const int line, const char* format, ...);
     static LogLevel getGlobalLevel();
     static void setGlobalLevel(const LogLevel& level);
-    LogLevel getUnitLevel(void);
+    LogLevel getUnitLevel();
     void setUnitLevel(const LogLevel& level);
 
 private:

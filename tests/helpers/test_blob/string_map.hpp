@@ -24,10 +24,10 @@ public:
         }
         return _map.at(name);
     }
-    const auto begin() {
+    auto begin() {
         return _map.begin();
     }
-    const auto end() {
+    auto end() {
         return _map.end();
     }
 
@@ -35,7 +35,7 @@ private:
     std::unordered_map<std::string, T> _map = {};
 
     auto hasElement(const std::string& name) {
-        auto result = _map.find(name) != _map.end() ? true : false;
+        auto result = static_cast<bool>(_map.find(name) != _map.end());
         return result;
     }
 };

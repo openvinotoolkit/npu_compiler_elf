@@ -37,8 +37,6 @@ enum class RunMode {
     SimpleClone,
 };
 
-}  // namespace
-
 using AddNoteBinarySection = AddBinarySectionAction<elf::elf_note::VersionNote>;
 
 std::vector<uint8_t> toBytes(const std::string& value, bool appendNullTerminator = true) {
@@ -58,7 +56,7 @@ struct SimpleLoadRunner : public HPIRunner<SimpleLoadRunner> {
         BlobScanner blobScanner(_accessManager.get(), getDefaultProcessorMap());
         blobScanner.printResult();
 
-        std::cout << "\nLoading HPI..." << std::endl;
+        std::cout << "\nLoading HPI..." << '\n';
 
         auto start = high_resolution_clock::now();
 
@@ -67,7 +65,7 @@ struct SimpleLoadRunner : public HPIRunner<SimpleLoadRunner> {
 
         auto end = high_resolution_clock::now();
 
-        std::cout << "HPI loaded in " << duration_cast<milliseconds>(end - start).count() << " ms\n" << std::endl;
+        std::cout << "HPI loaded in " << duration_cast<milliseconds>(end - start).count() << " ms\n" << '\n';
 
         IOBuffersContainer ioContainer(_ioBufferManager, hpi.getInputBuffers(), hpi.getOutputBuffers(),
                                        hpi.getProfBuffers());
@@ -78,7 +76,7 @@ struct SimpleLoadRunner : public HPIRunner<SimpleLoadRunner> {
         std::cout << "Projected NPU memory for HPI: "
                   << blobScanner.getRequirementsByAllocationType().getTotalRequired() + hpi.getHPISize() << " bytes\n";
         std::cout << "Total NPU buffers tracked by HPI object: " << hpi.getAllocatedBuffers().size() << "\n";
-        std::cout << std::endl;
+        std::cout << '\n';
 
         _hpiBufferManager->printAllocationStats();
     }
@@ -90,10 +88,10 @@ public:
     }
 
     void runImpl() {
-        std::cout << "Loading first HPI..." << std::endl;
+        std::cout << "Loading first HPI..." << '\n';
         HostParsedInference hpi(_hpiBufferManager.get(), _accessManager.get(), _hpiConfig);
         hpi.load();
-        std::cout << "First HPI loaded\n" << std::endl;
+        std::cout << "First HPI loaded\n" << '\n';
 
         // Delete AccessManager
         _accessManager = nullptr;
@@ -106,12 +104,12 @@ public:
 
         _hpiBufferManager->printAllocationStats();
 
-        std::cout << "Loading second HPI..." << std::endl;
+        std::cout << "Loading second HPI..." << '\n';
 
         // Cloning must still work after AccessManager was deleted
         HostParsedInference hpiClone(hpi);
 
-        std::cout << "Second HPI loaded\n" << std::endl;
+        std::cout << "Second HPI loaded\n" << '\n';
 
         _hpiBufferManager->printAllocationStats();
         hpiClone.getMetadata();
@@ -320,6 +318,8 @@ TEST(HostParsedInference, BaseMemoryCheck) {
 }
 
 TEST(HostParsedInference, ScratchSectionHasNoImpactOnBlobSize) {
+    constexpr auto bufferSize4GB = static_cast<unsigned long long>(4 * 1024 * 1024) * 1024ULL;
+    constexpr auto bufferSize2GB = static_cast<unsigned long long>(2 * 1024 * 1024) * 1024ULL;
     auto arch = elf::platform::ArchKind::NPU4000;
     auto archSpecHpi = elf::HostParsedInferenceCommon::getArchSpecificHPI(arch);
 
@@ -328,16 +328,14 @@ TEST(HostParsedInference, ScratchSectionHasNoImpactOnBlobSize) {
 
                         AddEmptySection::build(
                                 ".buffer", AddEmptySection::Attributes{{elf::SHF_ALLOC | elf::VPU_SHF_PROC_DMA, 1024},
-                                                                       4 * 1024 * 1024 * 1024ULL})
+                                                                       bufferSize4GB})
 
                 }};
 
     auto seq1 = makeMinimalLoadable(arch) +
-                ActionsSequence{{
-
-                        AddEmptySection::build(
-                                ".buffer", AddEmptySection::Attributes{{elf::SHF_ALLOC | elf::VPU_SHF_PROC_DMA, 1024},
-                                                                       2 * 1024 * 1024 * 1024ULL})}};
+                ActionsSequence{{AddEmptySection::build(
+                        ".buffer",
+                        AddEmptySection::Attributes{{elf::SHF_ALLOC | elf::VPU_SHF_PROC_DMA, 1024}, bufferSize2GB})}};
 
     auto elf0 = TestBlob(seq0).getBinary();
     auto elf1 = TestBlob(seq1).getBinary();
@@ -819,3 +817,5 @@ TEST(HostParsedInference, CopyOperationsUseHPISectionFor5000DerivedWhenPresent) 
     ASSERT_EQ(0, std::memcmp(parsedInferenceFromCopyAssignment.cpu_addr(), expectedHPIBytes.data(),
                              expectedHPIBytes.size()));
 }
+
+}  // namespace

@@ -52,7 +52,7 @@ void Writer::prepareWriter() {
 
     curOffset += static_cast<size_t>(m_elfHeader.e_shnum) * m_elfHeader.e_shentsize;
 
-    m_dataOffset = static_cast<size_t>(curOffset);
+    m_dataOffset = curOffset;
     m_totalBinarySize = m_dataOffset;
 
     m_sectionHeaders.reserve(m_elfHeader.e_shnum);

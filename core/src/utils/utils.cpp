@@ -22,12 +22,9 @@ namespace utils {
 bool checkELFMagic(const unsigned char* elfIdent) {
     VPUX_ELF_THROW_UNLESS(elfIdent, ArgsError, "nullptr passed for elf buffer");
 
-    if (elfIdent[elf::EI_MAG0] != elf::ELFMAG0 || elfIdent[elf::EI_MAG1] != elf::ELFMAG1 ||
-        elfIdent[elf::EI_MAG2] != elf::ELFMAG2 || elfIdent[elf::EI_MAG3] != elf::ELFMAG3) {
-        // if the elf magic is not correct return false
-        return false;
-    }
-    return true;
+    // if the elf magic is not correct return false
+    return elfIdent[elf::EI_MAG0] == elf::ELFMAG0 && elfIdent[elf::EI_MAG1] == elf::ELFMAG1 &&
+           elfIdent[elf::EI_MAG2] == elf::ELFMAG2 && elfIdent[elf::EI_MAG3] == elf::ELFMAG3;
 }
 
 size_t alignUp(size_t size, size_t alignment) {

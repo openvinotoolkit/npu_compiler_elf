@@ -106,8 +106,8 @@ TEST(Accessor, FSAccessManagerReadsData) {
 
 // Helper: the largest offset that, when added to kOverflowSize, wraps to a
 // small value well below any realistic blob size.
-static constexpr size_t kOverflowSize = 0x20;
-static constexpr size_t kOverflowOffset = SIZE_MAX - kOverflowSize + 1;
+constexpr size_t kOverflowSize = 0x20;
+constexpr size_t kOverflowOffset = SIZE_MAX - kOverflowSize + 1;
 // kOverflowOffset + kOverflowSize == 0  (wraps to 0 on 64-bit unsigned)
 
 TEST(Accessor, DDRAlwaysEmplace_ReadInternal_OverflowBypassThrows) {

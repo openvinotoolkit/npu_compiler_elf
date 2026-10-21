@@ -51,7 +51,7 @@ void MemoryRequirementsCategory::print() {
         std::cout << "    - " << entry->first << ": " << entry->second._totalGroupRequirement << " bytes from "
                   << entry->second._individualRequirements.size() << " sections\n";
     }
-    std::cout << std::endl;
+    std::cout << '\n';
 }
 
 BlobScanner::BlobScanner(elf::AccessManager* accessManager, const ProcessorMap& processorMap)
@@ -98,5 +98,5 @@ void BlobScanner::printResult() {
     std::cout << "\n";
     _allocationTypeRequirements.print();
     std::cout << "================================================================================\n";
-    std::cout << std::endl;
+    std::cout << '\n';
 }

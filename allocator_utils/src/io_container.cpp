@@ -5,14 +5,18 @@
 
 #include "allocator_utils/io_container.hpp"
 
+#include <utility>
+
+#include "vpux_headers/buffer_specs.hpp"
+
 IOBuffersContainer::IOBuffersContainer(std::shared_ptr<elf::BufferManager> bufferManager,
                                        const std::vector<elf::DeviceBuffer>& inputDescriptions,
                                        const std::vector<elf::DeviceBuffer>& outputDescriptions,
                                        const std::vector<elf::DeviceBuffer>& profilingDescriptions)
-        : _bufferManager(bufferManager),
-          _inputBuffersContainer(bufferManager.get()),
-          _outputBuffersContainer(bufferManager.get()),
-          _profilingBuffersContainer(bufferManager.get()) {
+        : _bufferManager(std::move(bufferManager)),
+          _inputBuffersContainer(_bufferManager.get()),
+          _outputBuffersContainer(_bufferManager.get()),
+          _profilingBuffersContainer(_bufferManager.get()) {
     allocIO(_inputBuffersContainer, inputDescriptions);
     allocIO(_outputBuffersContainer, outputDescriptions);
     allocIO(_profilingBuffersContainer, profilingDescriptions);

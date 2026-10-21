@@ -31,7 +31,6 @@
 #include <hpi_5000.hpp>
 #endif
 
-#include <string.h>
 // clang-format on
 
 namespace elf {
@@ -272,7 +271,7 @@ void HostParsedInference::load() {
     auto archSpecificHpi = HostParsedInferenceCommon::getArchSpecificHPI(platformInfo->mArchKind);
 
     const auto symbolSectionTypes = archSpecificHpi->getSymbolSectionTypes();
-    auto symTabOverrideMode = archSpecificHpi->getSymbolSectionTypes().size() == 0 ? false : true;
+    auto symTabOverrideMode = !archSpecificHpi->getSymbolSectionTypes().empty();
     auto explicitAllocationsEnabled = archSpecificHpi->getExplicitAllocationsEnabled();
 
     std::vector<uint64_t> entriesVct;

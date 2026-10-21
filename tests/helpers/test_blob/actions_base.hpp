@@ -51,18 +51,22 @@ private:
 
 template <typename ActionType, typename... Args>
 class ActionWithBuilder {
+    ActionWithBuilder() = default;
+
 public:
     static std::shared_ptr<ActionType> build(std::string name, Args&&... args) {
         return std::make_shared<ActionType>(std::move(name), std::forward<Args>(args)...);
     }
+    friend ActionType;
 };
 
 template <typename Impl, typename ExpectedNestedType = void, typename OperandType = void>
 class ActionWithNest : public IActionWithNest {
-public:
+private:
     explicit ActionWithNest(ActionsSequence actions): _actions(std::move(actions)) {
     }
 
+public:
     void printNested(std::ostream* os, const std::string& indent) const {
         for (auto& action : _actions._actions) {
             if (auto ptr = dynamic_cast<IPrintable*>(action.get())) {
@@ -98,6 +102,7 @@ protected:
     virtual const ActionsSequence& getActions() const override final {
         return _actions;
     }
+    friend Impl;
 };
 
 template <typename AttrsType>
@@ -166,12 +171,14 @@ protected:
 
 template <typename ActionType>
 class ActionWithPrinter : public IPrintable {
+    ActionWithPrinter() = default;
+
 public:
     virtual void print(std::ostream* os, const std::string& indent) const override final {
         auto* impl = static_cast<const ActionType*>(this);
 
-        *os << indent << "[" << impl->getName() << " : "
-            << Printing::demangle(typeid(typename std::decay<ActionType>::type).name()) << "]";
+        *os << indent << "[" << impl->getName() << " : " << Printing::demangle(typeid(std::decay_t<ActionType>).name())
+            << "]";
 
         if constexpr (hasGetAttributes<ActionType>::value) {
             auto attrs = impl->getAttributes();
@@ -194,7 +201,7 @@ public:
             impl->printNested(os, indent);
             *os << indent + "}";
         }
-        *os << std::endl;
+        *os << '\n';
     }
 
 private:
@@ -217,6 +224,7 @@ private:
     struct hasPrintNested : std::false_type {};
     template <typename T>
     struct hasPrintNested<T, std::void_t<decltype(&T::printNested)>> : std::true_type {};
+    friend ActionType;
 };
 
 template <typename BinaryDataSectionType>

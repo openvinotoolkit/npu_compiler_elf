@@ -121,9 +121,9 @@ struct DMASymbolTraits {
     using OperandsType = AddDMASymbolOperands;
     using ResultType = SymbolResult<elf::writer::DmaSymbol, elf::writer::DmaSymbolSection>;
 
-    static elf::writer::DmaSymbol* buildSymbol(TestBlobHandle& handle, const std::string&,
+    static elf::writer::DmaSymbol* buildSymbol(TestBlobHandle& /*handle*/, const std::string&,
                                                elf::writer::DmaSymbolSection* section, const AttributesType& attrs,
-                                               const OperandsType& operands) {
+                                               const OperandsType& /*operands*/) {
         auto* symbol = section->addDmaSymbolEntry();
         symbol->setDmaSymbol(attrs._symbolEntry);
 

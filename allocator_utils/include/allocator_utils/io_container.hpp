@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "vpux_headers/buffer_manager.hpp"
-#include "vpux_headers/buffer_specs.hpp"
 #include "vpux_headers/device_buffer.hpp"
 #include "vpux_headers/device_buffer_container.hpp"
 

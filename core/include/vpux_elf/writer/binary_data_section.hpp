@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -41,7 +41,7 @@ public:
 
 private:
     explicit BinaryDataSection(const std::string& name, const Elf_Word section_type = SHT_PROGBITS): Section(name) {
-        static_assert(std::is_standard_layout<T>::value, "Only POD types are supported");
+        static_assert(std::is_standard_layout_v<T>, "Only POD types are supported");
         m_header.sh_type = section_type;
         m_header.sh_entsize = sizeof(T);
     }

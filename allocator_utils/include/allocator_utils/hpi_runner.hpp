@@ -12,6 +12,8 @@
 #include "vpux_headers/platform.hpp"
 #include "vpux_hpi.hpp"
 
+#include <utility>
+
 enum class AccessManagerType { DDRAccessManager = 0, FSAccessManager };
 
 // Helper class intended to remove repetitive code needed to create supporting environment when creating
@@ -26,15 +28,15 @@ public:
                     _hpiBufferManager->getStats()._currentTotalSize || _ioBufferManager->getStats()._currentTotalSize,
                     elf::RuntimeError, "Memory leak occurred");
         } catch (const std::exception& e) {
-            std::cout << "Caught exception: " << e.what() << std::endl;
+            std::cout << "Caught exception: " << e.what() << '\n';
             // Rethrow to application level
             throw;
         } catch (...) {
-            std::cout << "Caught unknown exception" << std::endl;
+            std::cout << "Caught unknown exception" << '\n';
             VPUX_ELF_THROW(elf::RuntimeError, "Unkown exception occurred");
         }
 
-        std::cout << "\n\nRun completed successfully" << std::endl;
+        std::cout << "\n\nRun completed successfully" << '\n';
     }
 
 protected:
@@ -60,16 +62,15 @@ private:
             // - NeverEmplace - all buffers are explicitly allocated
             // - AllocatedDeviceBufferFactory - ensure all buffers are allocated by a BufferManager
             _accessManager = getDDRAccessManager<elf::DDRNeverEmplace>(
-                    blobPathAndName.data(), _blobBinVector,
+                    blobPathAndName, _blobBinVector,
                     std::make_shared<elf::AllocatedDeviceBufferFactory>(_hpiBufferManager.get()));
             break;
         }
         case AccessManagerType::FSAccessManager: {
             // To simulate host vs NPU memory allocations distribution during HPI loading, build accessor with:
             // - AllocatedDeviceBufferFactory - ensure all buffers are allocated by a BufferManager
-            _accessManager =
-                    getFSAccessManager(blobPathAndName.data(),
-                                       std::make_shared<elf::AllocatedDeviceBufferFactory>(_hpiBufferManager.get()));
+            _accessManager = getFSAccessManager(
+                    blobPathAndName, std::make_shared<elf::AllocatedDeviceBufferFactory>(_hpiBufferManager.get()));
             break;
         }
         default: {
@@ -92,13 +93,13 @@ private:
         inputStream.close();
 
         return std::make_shared<elf::DDRAccessManager<EmplaceLogic, BufferFactory>>(
-                storageVector.data(), storageVector.size(), bufferFactory);
+                storageVector.data(), storageVector.size(), std::move(bufferFactory));
     }
 
     template <typename BufferFactory>
     static std::shared_ptr<elf::AccessManager> getFSAccessManager(
             const std::string& filePathAndName,
             std::shared_ptr<BufferFactory> bufferFactory = std::make_shared<BufferFactory>()) {
-        return std::make_shared<elf::FSAccessManager<BufferFactory>>(filePathAndName, bufferFactory);
+        return std::make_shared<elf::FSAccessManager<BufferFactory>>(filePathAndName, std::move(bufferFactory));
     }
 };

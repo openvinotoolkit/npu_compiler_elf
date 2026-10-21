@@ -17,7 +17,7 @@ namespace elf {
 
 static_assert(sizeof(size_t) >= sizeof(uintptr_t));
 
-ManagedBuffer::ManagedBuffer(BufferSpecs bSpecs): mDevBuffer(), mBufferSpecs(bSpecs), mUserPrivateData(nullptr) {
+ManagedBuffer::ManagedBuffer(BufferSpecs bSpecs): mDevBuffer(), mBufferSpecs(bSpecs) {
 }
 
 DeviceBuffer ManagedBuffer::getBuffer() const {
