@@ -15,6 +15,8 @@
 #include "vpux_elf/types/symbol_entry.hpp"
 #include "vpux_elf/types/vpu_extensions.hpp"
 
+namespace {
+
 struct TestBlobTestParams {
     std::string _name;
     ActionsSequence _actions;
@@ -121,7 +123,7 @@ TEST(TestBlob, NestedVsNonNestedEquivalence) {
 class TestBlobThrow : public testing::TestWithParam<TestBlobTestParams> {};
 
 TEST_P(TestBlobThrow, ) {
-    auto params = GetParam();
+    const auto& params = GetParam();
 
     ASSERT_THROW(TestBlob(params._actions), std::exception);
 }
@@ -404,7 +406,7 @@ INSTANTIATE_TEST_SUITE_P(TestBlobThrow, TestBlobThrow, testBlobThrowParams,
 class TestBlobNoThrow : public testing::TestWithParam<TestBlobTestParams> {};
 
 TEST_P(TestBlobNoThrow, ) {
-    auto params = GetParam();
+    const auto& params = GetParam();
 
     ASSERT_NO_THROW(TestBlob(params._actions));
 }
@@ -668,3 +670,5 @@ auto testBlobNoThrowParams = testing::Values(
 );
 
 INSTANTIATE_TEST_SUITE_P(TestBlobNoThrow, TestBlobNoThrow, testBlobNoThrowParams);
+
+}  // namespace

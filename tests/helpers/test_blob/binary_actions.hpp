@@ -120,7 +120,8 @@ class AddEmptySectionAction :
         public ActionWithPrinter<AddEmptySectionAction> {
 public:
     AddEmptySectionAction(std::string name, AddEmptySectionAttributes attrs)
-            : Action(std::move(name)), ActionWithAttributes<AddEmptySectionAttributes>(std::move(attrs)) {
+            : Action(std::move(name)),
+              ActionWithAttributes<AddEmptySectionAttributes>(std::move(attrs)) {  // NOLINT(performance-move-const-arg)
     }
 
 private:

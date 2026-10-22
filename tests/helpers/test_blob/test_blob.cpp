@@ -3,11 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "test_blob/test_blob.hpp"
 #include <fstream>
-
 #include "test_blob/interfaces.hpp"
 #include "test_blob/string_map.hpp"
-#include "test_blob/test_blob.hpp"
 #include "vpux_elf/writer.hpp"
 
 class TestBlobCore {
@@ -18,7 +17,7 @@ public:
         execute(sequence);
     }
 
-    void execute(std::shared_ptr<IAction> action) {
+    void execute(const std::shared_ptr<IAction>& action) {
         // Insert before execution for following main reasons:
         // 1. Check whether action was already executed (insertAction will throw when action with the same name has
         // already been registered)
@@ -49,7 +48,7 @@ public:
     std::shared_ptr<IAction> getAction(const std::string& name) {
         return _actionMap.get(name);
     }
-    void addResult(const std::string& name, std::shared_ptr<IResult> result) {
+    void addResult(const std::string& name, const std::shared_ptr<IResult>& result) {
         _resultMap.insert(name, result);
     }
     std::shared_ptr<IResult> getResult(const std::string& name) {
@@ -66,8 +65,8 @@ private:
     StringMap<std::shared_ptr<IAction>> _actionMap = {};
     StringMap<std::shared_ptr<IResult>> _resultMap = {};
 
-    void insertAction(std::shared_ptr<IAction> action) {
-        _actionMap.insert(action->getName(), std::move(action));
+    void insertAction(const std::shared_ptr<IAction>& action) {
+        _actionMap.insert(action->getName(), action);
     }
 };
 
@@ -92,7 +91,7 @@ void TestBlob::dumpToFile(const std::string& fileName, const std::vector<uint8_t
     TestBlobCore::dumpToFile(fileName, binary);
 }
 
-void TestBlobHandle::execute(std::shared_ptr<IAction> action) {
+void TestBlobHandle::execute(const std::shared_ptr<IAction>& action) {
     _core->execute(action);
 }
 void TestBlobHandle::execute(const ActionsSequence& sequence) {

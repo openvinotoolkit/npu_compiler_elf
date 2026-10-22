@@ -13,7 +13,7 @@ using namespace elf;
 using namespace elf::writer;
 
 SymbolSection::SymbolSection(const std::string& name, StringSection* namesSection)
-        : Section(name), m_namesSection(namesSection), sh_info(0) {
+        : Section(name), m_namesSection(namesSection) {
     m_header.sh_type = SHT_SYMTAB;
     m_header.sh_entsize = sizeof(SymbolEntry);
     m_fileAlignRequirement = alignof(SymbolEntry);

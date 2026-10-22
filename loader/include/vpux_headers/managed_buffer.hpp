@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -38,7 +38,7 @@ public:
 protected:
     DeviceBuffer mDevBuffer;
     BufferSpecs mBufferSpecs;
-    void* mUserPrivateData;
+    void* mUserPrivateData = nullptr;
 };
 
 class AllocatedDeviceBuffer final : public ManagedBuffer {

@@ -19,7 +19,7 @@ public:
     static std::string demangle(const char* name) {
 #if defined(__clang__) || defined(__GNUC__)
         int status = -1;
-        std::unique_ptr<char[], void (*)(void*)> res{abi::__cxa_demangle(name, NULL, NULL, &status), std::free};
+        std::unique_ptr<char[], void (*)(void*)> res{abi::__cxa_demangle(name, nullptr, nullptr, &status), std::free};
         return (status == 0) ? res.get() : name;
 #endif
         return name;

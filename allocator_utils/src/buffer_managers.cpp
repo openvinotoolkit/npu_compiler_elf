@@ -11,7 +11,7 @@ using namespace elf;
 
 DeviceBuffer NullAllocBufferManager::allocate(const BufferSpecs& buffSpecs) {
     (void)buffSpecs;
-    return DeviceBuffer();
+    return {};
 }
 
 void NullAllocBufferManager::deallocate(DeviceBuffer& devAddress) {
@@ -69,7 +69,7 @@ DeviceBuffer HeapBufferManager::allocate(const BufferSpecs& buffSpecs) {
     _allocations[ptr] = buffSpecs.alignment;  // Store alignment for correct deallocation
 
     // All allocations have CPU VA
-    auto cpuAddr = reinterpret_cast<uint8_t*>(ptr);
+    auto cpuAddr = ptr;
     // Only NPU allocations have NPU VA
     // Initializing to 0 could help early detection of faulty allocation logic from loader
     auto npuAddr = static_cast<uint64_t>(0);
@@ -87,7 +87,7 @@ DeviceBuffer HeapBufferManager::allocate(const BufferSpecs& buffSpecs) {
         _allocStats._totalCPUSize += buffSpecs.size;
     }
 
-    return DeviceBuffer(cpuAddr, npuAddr, buffSpecs.size);
+    return {cpuAddr, npuAddr, buffSpecs.size};
 }
 
 void HeapBufferManager::deallocate(DeviceBuffer& devBuffer) {
@@ -126,7 +126,7 @@ void HeapBufferManager::printAllocationStats() {
     std::cout << " - All-time NPU allocated size: " << _allocStats._totalNPUSize << " bytes in "
               << _allocStats._totalNPUCount << " buffers\n";
     std::cout << "================================================================================\n";
-    std::cout << std::endl;
+    std::cout << '\n';
 }
 // ---- CountingBufferManager -----
 DeviceBuffer CountingBufferManager::allocate(const BufferSpecs& buffSpecs) {
@@ -134,7 +134,7 @@ DeviceBuffer CountingBufferManager::allocate(const BufferSpecs& buffSpecs) {
     lastRequestedSpecs = buffSpecs;
 
     lastAllocation.resize(buffSpecs.size);
-    return DeviceBuffer(lastAllocation.data(), reinterpret_cast<uint64_t>(lastAllocation.data()), buffSpecs.size);
+    return {lastAllocation.data(), reinterpret_cast<uint64_t>(lastAllocation.data()), buffSpecs.size};
 }
 
 void CountingBufferManager::deallocate(DeviceBuffer& devAddress) {
@@ -163,7 +163,7 @@ size_t CountingBufferManager::copy(DeviceBuffer& to, const uint8_t* from, size_t
 DeviceBuffer BadAllocSizeBufferManager::allocate(const BufferSpecs& buffSpecs) {
     lastRequested = buffSpecs;
     backing.resize(1);
-    return DeviceBuffer(backing.data(), reinterpret_cast<uint64_t>(backing.data()), 1);
+    return {backing.data(), reinterpret_cast<uint64_t>(backing.data()), 1};
 }
 
 void BadAllocSizeBufferManager::deallocate(DeviceBuffer& devAddress) {

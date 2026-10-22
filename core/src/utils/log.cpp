@@ -1,13 +1,12 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
 //
 
-#include <inttypes.h>
-#include <stdarg.h>
-#include <stdio.h>
+#include <cstdarg>
+#include <cstdio>
 #include <vpux_elf/utils/log.hpp>
 
 namespace elf {
@@ -50,7 +49,7 @@ void Logger::setGlobalLevel(const LogLevel& level) {
     updateLevelVar(globalLevel, level);
 }
 
-LogLevel Logger::getUnitLevel(void) {
+LogLevel Logger::getUnitLevel() {
     return unitLevel;
 }
 

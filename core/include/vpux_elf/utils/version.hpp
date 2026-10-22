@@ -24,7 +24,7 @@ enum class VersionType { UNKNOWN_VERSION = 0, ELF_ABI_VERSION = 1, MAPPED_INFERE
 class Version final {
 public:
     constexpr Version(uint32_t v_major, uint32_t v_minor, uint32_t v_patch)
-            : mi_format{0}, major{v_major}, minor{v_minor}, patch{v_patch}, isValid{true} {};
+            : major{v_major}, minor{v_minor}, patch{v_patch}, isValid{true} {};
     explicit Version(const elf::elf_note::VersionNote& versionNote)
             : mi_format{versionNote.n_desc[0]},
               major{versionNote.n_desc[1]},

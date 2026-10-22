@@ -1,10 +1,11 @@
 //
-// Copyright (C) 2023-2025 Intel Corporation
+// Copyright (C) 2023-2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
 //
 
+#include <utility>
 #include <vpux_elf/utils/error.hpp>
 #include <vpux_elf/writer/section.hpp>
 
@@ -14,7 +15,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-Section::Section(const std::string& name): m_name(name) {
+Section::Section(std::string name): m_name(std::move(name)) {
     m_header.sh_name = 0;
     m_header.sh_type = SHT_NULL;
     m_header.sh_flags = 0;

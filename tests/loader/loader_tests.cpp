@@ -6,7 +6,6 @@
 #include <gtest/gtest.h>
 
 #include <malloc.h>
-#include <stdint.h>
 #include <cstdint>
 #include <cstring>
 #include <random>
@@ -49,14 +48,14 @@ using namespace writer;
         }                                                                 \
     }
 
+namespace {
+
 uint32_t generateRandom(uint32_t from, uint32_t to) {
     std::mt19937 gen((std::random_device())());
     std::uniform_int_distribution<> dist(from, to);
 
     return dist(gen);
 }
-
-namespace {
 
 class HardCodedSymtabToCluster0 {
 private:
@@ -94,8 +93,8 @@ public:
         symTab_[VPU_NNRD_SYM_BARRIERS_START].st_size = 0;
     }
 
-    const std::vector<SymbolEntry> symTab() const {
-        return std::vector<SymbolEntry>(symTab_, symTab_ + SPECIAL_SYMTAB_SIZE);
+    std::vector<SymbolEntry> symTab() const {
+        return {symTab_, symTab_ + SPECIAL_SYMTAB_SIZE};
     }
 };
 
@@ -121,7 +120,7 @@ struct LogLevelGuard {
     elf::LogLevel savedLevel;
 };
 
-static auto validElfDefault = ActionsSequence{{
+auto validElfDefault = ActionsSequence{{
 
         AddDummyBinarySection::build(
                 ".binSection_0",
@@ -131,7 +130,7 @@ static auto validElfDefault = ActionsSequence{{
 
 using AddDMADescriptorBinarySection = AddBinarySectionAction<elf::DmaDescriptor>;
 
-static const auto validElfWithDmaRelocations = ActionsSequence{{
+const auto validElfWithDmaRelocations = ActionsSequence{{
 
         AddDMADescriptorBinarySection::build(
                 ".binSection_0",
@@ -917,7 +916,7 @@ TEST(ELFLoader, ThrowWhenScratchRelocationSymbolIndexEqualsDeclaredSymtabEntries
 
 using RelocationTestParams = std::tuple<ActionsSequence, ActionsSequence>;
 
-static const auto RelocationTestPrerequisites = std::vector<ActionsSequence>{ActionsSequence{{
+const auto RelocationTestPrerequisites = std::vector<ActionsSequence>{ActionsSequence{{
 
         // !!! Some relocs make use of data from target location. For now, all 0 data works just fine for
         // all relocs,
@@ -942,7 +941,7 @@ static const auto RelocationTestPrerequisites = std::vector<ActionsSequence>{Act
 
 };
 
-static const auto DMARelocationTestPrerequisites = std::vector<ActionsSequence>{ActionsSequence{{
+const auto DMARelocationTestPrerequisites = std::vector<ActionsSequence>{ActionsSequence{{
 
         // !!! Some relocs make use of data from target location. For now, all 0 data works just fine for
         // all relocs,
@@ -968,7 +967,7 @@ static const auto DMARelocationTestPrerequisites = std::vector<ActionsSequence>{
 
 };
 
-static const auto RelocationTestRelocations = std::vector<ActionsSequence>{
+const auto RelocationTestRelocations = std::vector<ActionsSequence>{
 
         ActionsSequence{{AddRelocation::build("reloc0", AddRelocation::Attributes{R_VPU_64, 0, 0},
                                               AddRelocation::Operands{"symtab_0_sym0", ".relocSection_0"})}},
@@ -1062,7 +1061,7 @@ static const auto RelocationTestRelocations = std::vector<ActionsSequence>{
 
 };
 
-static const auto DMARelocationTestRelocations = std::vector<ActionsSequence>{
+const auto DMARelocationTestRelocations = std::vector<ActionsSequence>{
 
         ActionsSequence{{AddDMARelocation::build("reloc0", AddDMARelocation::Attributes{R_VPU_DMA_TASK_INPUT, 0, 0},
                                                  AddDMARelocation::Operands{"symtab_0_sym0", ".relocSection_0"})}},

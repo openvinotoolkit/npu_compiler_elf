@@ -5,6 +5,7 @@
 
 //
 
+#include <cstddef>
 #include <cstring>
 
 #include <vpux_elf/accessor.hpp>
@@ -465,7 +466,7 @@ TEST(ELFReaderTests, ReaderThrowsWhenPayloadSectionsOverlap) {
     // Deliberate overlap with section 2.
     setPayloadSection(scenario.sectionHeaders, 3, payloadSectionOffset + payloadSectionSize - 1, payloadSectionSize);
 
-    const auto neededSize = payloadSectionOffset + 2 * payloadSectionSize;
+    const auto neededSize = payloadSectionOffset + static_cast<size_t>(2 * payloadSectionSize);
     auto buffer = buildTestBuffer(scenario.fileHeader, scenario.sectionHeaders, neededSize);
     expectReaderThrowsRangeError(buffer, ErrorCode::ELF_ERROR_RANGE_SECTION_OVERLAPS_NEXT_SECTION);
 }

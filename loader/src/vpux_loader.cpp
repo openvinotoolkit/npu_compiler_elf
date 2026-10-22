@@ -4,6 +4,7 @@
 //
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 
 #include <memory>
@@ -37,7 +38,7 @@ void safeGet(T* dst, const T* src) {
 }
 
 const uint32_t ADDRESS_MASK = ~0x00C0'0000U;
-const uint64_t SLICE_LENGTH = 2 * 1024 * 1024;
+constexpr auto SLICE_LENGTH = static_cast<uint64_t>(2 * 1024 * 1024);
 
 uint32_t to_dpu_multicast(uint32_t addr, unsigned int& offset1, unsigned int& offset2, unsigned int& offset3) {
     const uint32_t bare_ptr = addr & ADDRESS_MASK;
@@ -767,7 +768,7 @@ void VPUXLoader::load(const std::vector<SymbolEntry>& runtimeSymTabs, bool,
             // The current implementation assumes all loader instances belonging to the same clone tree can run in
             // parallel, thus any writable section (see SHF_WRITE definition in section_header.hpp for details about the
             // meaning of writable) is considered not shareable with other loader instances.
-            inferBufferInfo.mBufferDetails.mIsShared = sectionFlags & SHF_WRITE ? false : true;
+            inferBufferInfo.mBufferDetails.mIsShared = (sectionFlags & SHF_WRITE) == 0;
             inferBufferInfo.mBufferDetails.mIsProcessed = false;
 
             VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistered section %s for deferred allocation", section.getName());
@@ -1345,7 +1346,7 @@ void VPUXLoader::applyRelocations(const std::vector<std::size_t>& relocationSect
                 targetSymbol.st_value += symValue;
             } else {
                 // This is the branch handling symtab override mode.
-                VPUX_ELF_THROW_UNLESS(m_symbolSectionTypes.size() > 0 && m_runtimeSymTabs.size() > 0 &&
+                VPUX_ELF_THROW_UNLESS(!m_symbolSectionTypes.empty() && !m_runtimeSymTabs.empty() &&
                                               m_symbolSectionTypes.size() == m_runtimeSymTabs.size(),
                                       RuntimeError, "Invalid runtime symbols configuration");
 
@@ -1460,20 +1461,20 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
 
         auto relocSecFlags = relocSecHdr->sh_flags;
 
-        auto getUserAddrs = [&]() -> std::vector<DeviceBuffer> {
+        auto getUserAddrs = [&]() -> std::vector<DeviceBuffer>& {
             if (relocSecFlags & VPU_SHF_USERINPUT) {
-                return std::vector<DeviceBuffer>(inputs);
+                return inputs;
             } else if (relocSecFlags & VPU_SHF_USEROUTPUT) {
-                return std::vector<DeviceBuffer>(outputs);
+                return outputs;
             } else if (relocSecFlags & VPU_SHF_PROFOUTPUT) {
-                return std::vector<DeviceBuffer>(profiling);
+                return profiling;
             } else {
                 VPUX_ELF_THROW(RelocError, "Jit reloc section pointing neither to userInput nor userOutput");
-                return std::vector<DeviceBuffer>(outputs);
+                return outputs;
             }
         };
 
-        auto userAddrs = getUserAddrs();
+        auto& userAddrs = getUserAddrs();
 
         Elf_Word targetSectionIdx = 0;
         if (relocSecFlags & SHF_INFO_LINK) {
@@ -1509,7 +1510,7 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
                                     "Invalid relocation type detected");
                 auto relocFunc = reloc->second;
 
-                relocFunc((void*)targetAddr, resolvedSymbol, addend);
+                relocFunc(targetAddr, resolvedSymbol, addend);
             };
 
             applyRelocations<elf::SymbolEntry>(relocSection, symTabSection, userAddrs, targetSectionAddr,
@@ -1541,7 +1542,7 @@ void VPUXLoader::applyJitRelocations(std::vector<DeviceBuffer>& inputs, std::vec
                                     "Invalid relocation type detected");
                 auto relocFunc = reloc->second;
 
-                relocFunc((void*)targetAddr, resolvedSymbol, addend);
+                relocFunc(targetAddr, resolvedSymbol, addend);
             };
 
             applyRelocations<elf::DmaSymbolEntry>(relocSection, symTabSection, userAddrs, targetSectionAddr,
@@ -1580,21 +1581,21 @@ void VPUXLoader::earlyFetchIO(const elf::Reader<Elf64>::Section& section) {
     VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "Parsed symtab section with flags %llx", sectionFlags);
 
     if (sectionFlags & VPU_SHF_USERINPUT) {
-        VPUX_ELF_THROW_WHEN(m_userInputsDescriptors->size(), SequenceError,
+        VPUX_ELF_THROW_WHEN(!m_userInputsDescriptors->empty(), SequenceError,
                             "User inputs already read.... potential more than one input section?");
 
         const auto entriesNum = section.getEntriesNum<elf::SymbolEntry>();
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu inputs", entriesNum - 1);
         registerUserIO(*m_userInputsDescriptors, section.getData<elf::SymbolEntry>(), entriesNum);
     } else if (sectionFlags & VPU_SHF_USEROUTPUT) {
-        VPUX_ELF_THROW_WHEN(m_userOutputsDescriptors->size(), SequenceError,
+        VPUX_ELF_THROW_WHEN(!m_userOutputsDescriptors->empty(), SequenceError,
                             "User outputs already read.... potential more than one output section?");
 
         const auto entriesNum = section.getEntriesNum<elf::SymbolEntry>();
         VPUX_ELF_LOG(LogLevel::LOG_DEBUG, "\tRegistering %zu outputs", entriesNum - 1);
         registerUserIO(*m_userOutputsDescriptors, section.getData<elf::SymbolEntry>(), entriesNum);
     } else if (sectionFlags & VPU_SHF_PROFOUTPUT) {
-        VPUX_ELF_THROW_WHEN(m_profOutputsDescriptors->size(), SequenceError,
+        VPUX_ELF_THROW_WHEN(!m_profOutputsDescriptors->empty(), SequenceError,
                             "Profiling outputs already read.... potential more than one output section?");
 
         const auto entriesNum = section.getEntriesNum<elf::SymbolEntry>();

@@ -14,7 +14,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-DmaSymbolSection::DmaSymbolSection(const std::string& name): Section(name), sh_info(0) {
+DmaSymbolSection::DmaSymbolSection(const std::string& name): Section(name) {
     m_header.sh_type = VPU_SHT_DMA_SYMBOLS;
     m_header.sh_entsize = sizeof(DmaSymbolEntry);
     m_fileAlignRequirement = alignof(DmaSymbolEntry);

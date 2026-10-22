@@ -11,6 +11,7 @@
 #include <fstream>
 #include <memory>
 
+#include <utility>
 #include <vpux_headers/buffer_manager.hpp>
 #include <vpux_headers/managed_buffer.hpp>
 
@@ -49,7 +50,7 @@ Demo classes.
 // Not full NPU access compatible when run by the host CPU
 class DDRStandardEmplace {
 public:
-    static bool canEmplace(uint8_t* addr, BufferSpecs specs) {
+    static bool canEmplace(const uint8_t* addr, BufferSpecs specs) {
         auto addrValue = reinterpret_cast<size_t>(addr);
         if (specs.alignment) {
             if (!elf::utils::isPowerOfTwo(specs.alignment)) {
@@ -158,7 +159,7 @@ class DDRAccessManager<EmplaceLogic, BufferFactory> final : public DDRAccessMana
 public:
     DDRAccessManager(const uint8_t* blob, size_t size,
                      std::shared_ptr<BufferFactory> factory = std::make_shared<BufferFactory>())
-            : DDRAccessManagerBase(blob, size), mBufferFactory(factory) {
+            : DDRAccessManagerBase(blob, size), mBufferFactory(std::move(factory)) {
         VPUX_ELF_THROW_UNLESS(mBufferFactory, RuntimeError, "nullptr buffer factory");
     }
 
@@ -202,7 +203,7 @@ class FSAccessManager final : public AccessManager {
 public:
     FSAccessManager(const std::string& elfFileName,
                     std::shared_ptr<BufferFactory> factory = std::make_shared<BufferFactory>())
-            : mFileStream(elfFileName, std::ifstream::binary), mBufferFactory(factory) {
+            : mFileStream(elfFileName, std::ifstream::binary), mBufferFactory(std::move(factory)) {
         VPUX_ELF_THROW_WHEN(!mFileStream.good(), AccessError,
                             std::string("unable to access binary file " + elfFileName).c_str());
         mFileStream.seekg(0, mFileStream.end);

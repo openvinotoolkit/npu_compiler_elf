@@ -39,7 +39,7 @@ std::string getSectionName(elf::Reader<elf::ELF_Bitness::Elf64>& reader,
     const auto elfHeader = reader.getHeader();
     const auto& testNames = reader.getSection(elfHeader->e_shstrndx);
     const auto strings = testNames.getData<char>();
-    return std::string(strings + section.getHeader()->sh_name);
+    return {strings + section.getHeader()->sh_name};
 }
 
 std::string getSymbolName(elf::Reader<elf::ELF_Bitness::Elf64>& reader,
@@ -47,7 +47,7 @@ std::string getSymbolName(elf::Reader<elf::ELF_Bitness::Elf64>& reader,
                           const elf::SymbolEntry& symbol) {
     const auto& symStrTab = reader.getSection(symbolSection.getHeader()->sh_link);
     const auto strings = symStrTab.getData<char>();
-    return std::string(strings + symbol.st_name);
+    return {strings + symbol.st_name};
 }
 
 std::vector<elf::Reader<elf::ELF_Bitness::Elf64>::Section> getSectionsByType(
@@ -457,7 +457,7 @@ TEST(ELFWriter, SpecialSymReloc) {
     auto relocationSections = getSectionsByType(reader, elf::SHT_RELA);
     ASSERT_EQ(relocationSections.size(), 1);
 
-    auto relocationSection = relocationSections.front();
+    const auto& relocationSection = relocationSections.front();
     ASSERT_EQ(getSectionName(reader, relocationSection), testRelocationName);
     ASSERT_EQ(relocationSection.getHeader()->sh_entsize, sizeof(elf::RelocationAEntry));
     ASSERT_EQ(relocationSection.getHeader()->sh_size, sizeof(elf::RelocationAEntry));

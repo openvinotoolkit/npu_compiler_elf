@@ -6,38 +6,51 @@
 include(CMakeDependentOption)
 
 option(ENABLE_CLANG_TIDY "Enable clang-tidy static analysis" OFF)
-option(FORCE_CLANG_TIDY_ENV "Force clang-tidy and compiler versions for result reproducibility (when ENABLE_CLANG_TIDY is ON)" ON)
+option(REQUIRE_CLANG_TIDY_CI_ENV "If ENABLE_CLANG_TIDY is enabled, require the same (up to major version) C/C++ compilers to be used as in the CI" ON)
 
 message(STATUS "ENABLE_CLANG_TIDY=${ENABLE_CLANG_TIDY}")
-message(STATUS "FORCE_CLANG_TIDY_ENV=${FORCE_CLANG_TIDY_ENV}")
+message(STATUS "REQUIRE_CLANG_TIDY_CI_ENV=${REQUIRE_CLANG_TIDY_CI_ENV}")
 
 # Configure clang-tidy for static analysis when enabled
 if(ENABLE_CLANG_TIDY)
-     # Find clang-tidy tooling versions used in CI first. If not found: fall back to the system tools
-     find_program(CLANG_TIDY_EXE NAMES clang-tidy-22)
-     find_program(RUN_CLANG_TIDY_EXE NAMES run-clang-tidy-22)
-     if(NOT FORCE_CLANG_TIDY_ENV AND (NOT CLANG_TIDY_EXE OR NOT RUN_CLANG_TIDY_EXE))
-         message(WARNING "To make reproducible analysis it's recommended to use the same clang-tidy executable versions as used in CI. Falling back to system clang-tidy.")
-         find_program(CLANG_TIDY_EXE NAMES clang-tidy-22 clang-tidy)
-         find_program(RUN_CLANG_TIDY_EXE NAMES run-clang-tidy-22 run-clang-tidy)
-     endif()
-     if(NOT CLANG_TIDY_EXE OR NOT RUN_CLANG_TIDY_EXE)
-         message(FATAL_ERROR "ENABLE_CLANG_TIDY is ON but required clang-tidy tooling was not found (clang-tidy + run-clang-tidy)")
-     endif()
+    set(_clang_ci_version 22)
 
-	# Find compiler versions used in CI if FORCE_CLANG_TIDY_ENV is ON
-	if (FORCE_CLANG_TIDY_ENV)
-		find_program(CLANG_C_COMPILER NAMES clang-22)
-		find_program(CLANG_CXX_COMPILER NAMES clang++-22)
-		if(NOT CLANG_C_COMPILER OR NOT CLANG_CXX_COMPILER)
-			message(FATAL_ERROR "ENABLE_CLANG_TIDY forced compiler versions were not found")
-		endif()
-		set(CMAKE_C_COMPILER "${CLANG_C_COMPILER}" CACHE FILEPATH "C compiler for clang-tidy analysis" FORCE)
-		set(CMAKE_CXX_COMPILER "${CLANG_CXX_COMPILER}" CACHE FILEPATH "CXX compiler for clang-tidy analysis" FORCE)
-		message(STATUS "Clang enabled for clang-tidy: C=${CMAKE_C_COMPILER}, CXX=${CMAKE_CXX_COMPILER}")
-	endif()
+    # Find clang-tidy tooling versions used in CI first. If not found: fall back to the system tools
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy-${_clang_ci_version})
+    find_program(RUN_CLANG_TIDY_EXE NAMES run-clang-tidy-${_clang_ci_version})
+    if(NOT REQUIRE_CLANG_TIDY_CI_ENV AND (NOT CLANG_TIDY_EXE OR NOT RUN_CLANG_TIDY_EXE))
+       message(WARNING "To make reproducible analysis it's recommended to use the same clang-tidy executable versions as used in CI (${_clang_ci_version}). Falling back to system clang-tidy.")
+       find_program(CLANG_TIDY_EXE NAMES clang-tidy)
+       find_program(RUN_CLANG_TIDY_EXE NAMES run-clang-tidy)
+    endif()
 
-	# Export compile commands to a JSON file for clang-tidy
-	set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-	message(STATUS "Compile commands exported to compile_commands.json")
+    if(NOT CLANG_TIDY_EXE OR NOT RUN_CLANG_TIDY_EXE)
+        message(FATAL_ERROR "ENABLE_CLANG_TIDY is ON but required clang-tidy tooling was not found (clang-tidy + run-clang-tidy)")
+    endif()
+
+    if(REQUIRE_CLANG_TIDY_CI_ENV)
+        foreach(LANG IN ITEMS C CXX)
+            if (NOT CMAKE_${LANG}_COMPILER_ID STREQUAL "Clang")
+                message(FATAL_ERROR
+                    "ENABLE_CLANG_TIDY with REQUIRE_CLANG_TIDY_CI_ENV requires Clang for the ${LANG} compiler\nCurrent compiler is ${CMAKE_${LANG}_COMPILER_ID} ${CMAKE_${LANG}_COMPILER_VERSION} (${CMAKE_${LANG}_COMPILER}).\n\
+                     Reconfigure with a Clang toolchain, or pass -D REQUIRE_CLANG_TIDY_CI_ENV=OFF.")
+            endif()
+
+            # CMAKE_<LANG>_COMPILER_VERSION is major[.minor[.patch[.tweak]]], not
+            # just the major, so match the whole 22.x series (>= 22 AND < 23).
+            # VERSION_EQUAL against a bare "22" would never match e.g. "22.1.8"
+            # (it compares component-wise, padding with zeros: 22.1.8 != 22.0.0).
+            math(EXPR _clang_ci_next_major "${_clang_ci_version} + 1")
+            if(CMAKE_${LANG}_COMPILER_VERSION VERSION_LESS "${_clang_ci_version}" OR
+               CMAKE_${LANG}_COMPILER_VERSION VERSION_GREATER_EQUAL "${_clang_ci_next_major}")
+                message(FATAL_ERROR "ENABLE_CLANG_TIDY with REQUIRE_CLANG_TIDY_CI_ENV requires Clang ${_clang_ci_version}.x for reproducible analysis, "
+                    "but the ${LANG} compiler is ${CMAKE_${LANG}_COMPILER_ID} ${CMAKE_${LANG}_COMPILER_VERSION} (${CMAKE_${LANG}_COMPILER}). "
+                    "Reconfigure with a Clang ${_clang_ci_version} toolchain, or pass -D REQUIRE_CLANG_TIDY_CI_ENV=OFF.")
+            endif()
+        endforeach()
+    endif()
+
+    # Export compile commands to a JSON file for clang-tidy
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+    message(STATUS "Compile commands exported to compile_commands.json")
 endif()

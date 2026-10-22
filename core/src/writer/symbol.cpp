@@ -5,6 +5,7 @@
 
 //
 
+#include <utility>
 #include <vpux_elf/writer/symbol.hpp>
 
 #include <algorithm>
@@ -12,7 +13,7 @@
 using namespace elf;
 using namespace elf::writer;
 
-Symbol::Symbol(const std::string& name): m_name(name) {
+Symbol::Symbol(std::string name): m_name(std::move(name)) {
     m_symbol.st_name = 0;
     m_symbol.st_info = static_cast<uint8_t>(elf64STInfo(STB_LOCAL, STT_NOTYPE));
     m_symbol.st_other = elf64STVisibility(STV_DEFAULT);

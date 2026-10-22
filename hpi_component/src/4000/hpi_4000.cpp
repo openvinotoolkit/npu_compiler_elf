@@ -74,8 +74,6 @@ constexpr uint32_t NPU40XX_VERSION_PATCH = 0;
 // 1.2.6
 // - Adding FP8 data types
 
-}  // namespace
-
 void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
     metrics.bw_base = BW_BASE;
     metrics.bw_step = BW_STEP;
@@ -87,6 +85,8 @@ void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
         std::copy(byBWTicks.begin(), byBWTicks.end(), std::begin(metrics.ticks[i]));
     }
 }
+
+}  // namespace
 
 HostParsedInference_4000_Base::HostParsedInference_4000_Base(elf::platform::ArchKind archKind): archKind_(archKind) {
 }
@@ -105,8 +105,7 @@ bool HostParsedInference_4000_Base::getExplicitAllocationsEnabled() const {
 }
 
 BufferSpecs HostParsedInference_4000_Base::getParsedInferenceBufferSpecs() {
-    return BufferSpecs(DEFAULT_ALIGN, utils::alignUp(sizeof(nn_public::VpuHostParsedInference), DEFAULT_ALIGN),
-                       SHF_EXECINSTR);
+    return {DEFAULT_ALIGN, utils::alignUp(sizeof(nn_public::VpuHostParsedInference), DEFAULT_ALIGN), SHF_EXECINSTR};
 }
 
 void HostParsedInference_4000_Base::setHostParsedInference(DeviceBuffer& devBuffer,

@@ -25,7 +25,7 @@ public:
         sh_info = info;
     }
 
-    uint32_t getInfo() {
+    uint32_t getInfo() const {
         return sh_info;
     }
 
@@ -37,7 +37,7 @@ private:
 private:
     StringSection* m_namesSection = nullptr;
     std::vector<std::unique_ptr<Symbol>> m_symbols;
-    uint32_t sh_info;
+    uint32_t sh_info = 0;
 
     friend Writer;
 };

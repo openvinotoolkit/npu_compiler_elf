@@ -37,7 +37,7 @@ std::string stringifyArchKind(const elf::platform::ArchKind& arch) {
             return archIt.first;
         }
     }
-    return std::string("UNKNOWN");
+    return {"UNKNOWN"};
 }
 
 uint64_t getHardwareTileCount(const elf::platform::ArchKind& arch) {

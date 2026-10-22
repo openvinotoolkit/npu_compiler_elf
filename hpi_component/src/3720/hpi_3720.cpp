@@ -4,6 +4,7 @@
 //
 
 // clang-format off
+#include <cstddef>
 #include <vpux_elf/utils/utils.hpp>
 #include <vpux_elf/utils/log.hpp>
 #include <vpux_elf/utils/error.hpp>
@@ -25,22 +26,20 @@ static constexpr size_t SPECIAL_SYMTAB_SIZE = 8;
 
 namespace {
 // Base of frequency values used in tables (in MHz).
-static constexpr uint32_t FREQ_BASE = 700;
+constexpr uint32_t FREQ_BASE = 700;
 // Step of frequency for each entry in tables (in MHz).
-static constexpr uint32_t FREQ_STEP = 100;
+constexpr uint32_t FREQ_STEP = 100;
 // Base of bandwidth values used in tables (in MB/s).
-static constexpr uint32_t BW_BASE = 2000;
+constexpr uint32_t BW_BASE = 2000;
 // Step of bandwidth values used in tables (in MB/s).
-static constexpr uint32_t BW_STEP = 100;
+constexpr uint32_t BW_STEP = 100;
 
 // value in [0.0..1.0] range indicating scalability of network for a given DDR bandwidth.
-static const std::array<float, VPU_SCALABILITY_VALUES_PER_FREQ> byBWScales({0.0F, 0.2F, 0.4F, 0.6F, 0.8F});
+const std::array<float, VPU_SCALABILITY_VALUES_PER_FREQ> byBWScales({0.0F, 0.2F, 0.4F, 0.6F, 0.8F});
 // expected ticks (based on FRC @37.5MHz) an inference should take for a given DDR bandwidth.
-static const std::array<uint64_t, VPU_SCALABILITY_VALUES_PER_FREQ> byBWTicks({10UL, 12UL, 14UL, 16UL, 18UL});
+const std::array<uint64_t, VPU_SCALABILITY_VALUES_PER_FREQ> byBWTicks({10UL, 12UL, 14UL, 16UL, 18UL});
 
-}  // namespace
-
-static void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
+void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
     metrics.bw_base = BW_BASE;
     metrics.bw_step = BW_STEP;
     metrics.freq_base = FREQ_BASE;
@@ -51,6 +50,8 @@ static void setDefaultPerformanceMetrics(VpuPerformanceMetrics& metrics) {
         std::copy(byBWTicks.begin(), byBWTicks.end(), std::begin(metrics.ticks[i]));
     }
 }
+
+}  // namespace
 
 std::vector<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index) const {
     SymbolEntry symTab_[N_TABS][SPECIAL_SYMTAB_SIZE];
@@ -103,7 +104,7 @@ std::vector<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index)
         symTab_[j][VPU_NNRD_SYM_FIFO_BASE].st_value = fifo_base[j];
         symTab_[j][VPU_NNRD_SYM_FIFO_BASE].st_size = 0;
 
-        symTab_[j][VPU_NNRD_SYM_BARRIERS_START].st_value = fifo_base[j] * 32;
+        symTab_[j][VPU_NNRD_SYM_BARRIERS_START].st_value = static_cast<Elf64_Addr>(fifo_base[j]) * 32;
         symTab_[j][VPU_NNRD_SYM_BARRIERS_START].st_size = 0;
 
         symTab_[j][VPU_NNRD_SYM_HW_REGISTER].st_value = 0;
@@ -116,18 +117,16 @@ std::vector<SymbolEntry> HostParsedInference_3720::getSymbolTable(uint8_t index)
     // 0 - tile0
     // 1 - tile1
     // 2 - multi tile
-    return std::vector<SymbolEntry>(symTab_[index], symTab_[index] + SPECIAL_SYMTAB_SIZE);
+    return {symTab_[index], symTab_[index] + SPECIAL_SYMTAB_SIZE};
 }
 
 BufferSpecs HostParsedInference_3720::getParsedInferenceBufferSpecs() {
-    return BufferSpecs(DEFAULT_ALIGN, utils::alignUp(sizeof(nn_public::VpuHostParsedInference), DEFAULT_ALIGN),
-                       SHF_EXECINSTR);
+    return {DEFAULT_ALIGN, utils::alignUp(sizeof(nn_public::VpuHostParsedInference), DEFAULT_ALIGN), SHF_EXECINSTR};
 }
 
 BufferSpecs HostParsedInference_3720::getEntryBufferSpecs(size_t numOfEntries) {
-    return BufferSpecs(DEFAULT_ALIGN,
-                       numOfEntries * utils::alignUp(sizeof(nn_public::VpuMappedInference), DEFAULT_ALIGN),
-                       SHF_EXECINSTR);
+    return {DEFAULT_ALIGN, numOfEntries * utils::alignUp(sizeof(nn_public::VpuMappedInference), DEFAULT_ALIGN),
+            SHF_EXECINSTR};
 }
 
 uint32_t HostParsedInference_3720::getArchTilesCount() const {

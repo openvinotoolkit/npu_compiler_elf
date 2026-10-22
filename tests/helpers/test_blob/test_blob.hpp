@@ -16,7 +16,7 @@ struct ActionsSequence {
     std::vector<std::shared_ptr<IAction>> _actions;
 
     void print(std::ostream* os = &std::cout) const {
-        *os << std::endl;
+        *os << '\n';
         for (auto& action : _actions) {
             if (auto ptr = dynamic_cast<IPrintable*>(action.get())) {
                 ptr->print(os, "");
@@ -55,7 +55,7 @@ private:
 // Class to expose only subset of TestBlobCore APIs to classes implementing IAction
 class TestBlobHandle {
 public:
-    void execute(std::shared_ptr<IAction> action);
+    void execute(const std::shared_ptr<IAction>& action);
     void execute(const ActionsSequence& sequence);
     elf::Writer* getWriter();
     void addResult(const IAction* action, std::shared_ptr<IResult> result);

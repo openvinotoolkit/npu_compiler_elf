@@ -209,7 +209,7 @@ inline std::vector<std::string> Parser::splitList(std::string_view list) {
     if (parser.peek() != 0) {
         throw parser.errorAt("at the end of the list");
     }
-    return std::vector<std::string>(items.begin(), items.end());
+    return {items.begin(), items.end()};
 }
 
 inline char Parser::peek() const {
@@ -266,7 +266,7 @@ inline std::string_view Parser::stopCapture(CaptureMode mode) {
             _captureEnd = _current;
             assert(_captureEnd != _captureStart);
             // return std::string_view(_captureStart, _captureEnd);  // C++20
-            return std::string_view(&*_captureStart, _captureEnd - _captureStart);
+            return {&*_captureStart, static_cast<size_t>(_captureEnd - _captureStart)};
         }
     }
     return {};
@@ -339,7 +339,7 @@ std::string_view Parser::readChars(F condition) {
         nextc();
     }
     // return std::string_view(start, _current); // C++20
-    return std::string_view(&*start, _current - start);
+    return {&*start, static_cast<size_t>(_current - start)};
 }
 
 // name ::= [a-z][_a-z0-9]*
@@ -374,7 +374,7 @@ inline std::runtime_error Parser::errorAt(std::string_view message) const {
             msg += "': ";
         }
         msg += message;
-        return std::runtime_error(std::move(msg));
+        return std::runtime_error(msg);
     }
 }
 

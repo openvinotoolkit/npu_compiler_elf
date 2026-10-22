@@ -41,7 +41,7 @@ public:
     size_t getIndex() const;
 
 private:
-    Symbol(const std::string& name = {});
+    Symbol(std::string name = {});
 
     void setIndex(size_t index);
 
