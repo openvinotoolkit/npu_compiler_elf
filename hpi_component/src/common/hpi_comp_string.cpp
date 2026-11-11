@@ -26,6 +26,8 @@ platform::ArchKind archFromPlatform(uint64_t platform) {
         return platform::ArchKind::NPU5010;
     case 5020:
         return platform::ArchKind::NPU5020;
+    case 6010:
+        return platform::ArchKind::NPU6010;
     }
     VPUX_ELF_THROW(RuntimeError, "Invalid platform");
 }

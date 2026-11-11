@@ -23,6 +23,7 @@ enum class ArchKind : uint64_t {
     NPU4000 = 4,
     NPU5010 = 5,
     NPU5020 = 5020,
+    NPU6010 = 6010,
 };
 
 const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitectures();
