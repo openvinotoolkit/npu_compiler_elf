@@ -15,6 +15,7 @@ const std::unordered_map<std::string, elf::platform::ArchKind>& getKnownArchitec
             {"UNKNOWN", elf::platform::ArchKind::UNKNOWN}, {"VPUX30XX", elf::platform::ArchKind::VPUX30XX},
             {"NPU3720", elf::platform::ArchKind::NPU3720}, {"NPU4000", elf::platform::ArchKind::NPU4000},
             {"NPU5010", elf::platform::ArchKind::NPU5010}, {"NPU5020", elf::platform::ArchKind::NPU5020},
+            {"NPU6010", elf::platform::ArchKind::NPU6010},
     };
 
     return knownArch;
@@ -46,6 +47,7 @@ uint64_t getHardwareTileCount(const elf::platform::ArchKind& arch) {
             {elf::platform::ArchKind::UNKNOWN, 0}, {elf::platform::ArchKind::VPUX30XX, 2},
             {elf::platform::ArchKind::NPU3720, 2}, {elf::platform::ArchKind::NPU4000, 6},
             {elf::platform::ArchKind::NPU5010, 3}, {elf::platform::ArchKind::NPU5020, 1},
+            {elf::platform::ArchKind::NPU6010, 4},
     };
     // get maximum hardware tile count, archKind has already been checked before
     return hardwareTileCountsMap.find(arch)->second;

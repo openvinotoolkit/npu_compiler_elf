@@ -13,6 +13,9 @@
 #include <hpi_5000.hpp>
 #endif
 // to be removed with E#88139: NPU5000+ share a common HPI implementation
+#if defined(CONFIG_TARGET_SOC_6000) || defined(HOST_BUILD)
+#include <hpi_5000.hpp>  // NOLINT(readability-duplicate-include)
+#endif
 #include <hpi_common_interface.hpp>
 
 namespace elf {
@@ -43,6 +46,11 @@ std::unique_ptr<HostParsedInferenceCommon> HostParsedInferenceCommon::getArchSpe
         break;
 #endif
 // to be updated with E#88139: NPU5000+ share a common HPI implementation
+#if (defined(CONFIG_TARGET_SOC_6000) || defined(HOST_BUILD))
+    case elf::platform::ArchKind::NPU6010:
+        archSpecificHPI = std::make_unique<HostParsedInference_5000>(archKind);
+        break;
+#endif
     default:
         VPUX_ELF_THROW(RangeError, (elf::platform::stringifyArchKind(archKind) + " arch is not supported").c_str());
         break;

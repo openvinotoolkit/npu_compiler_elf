@@ -11,7 +11,6 @@ project(${LIB_NAME})
 include(./cmake/compiler_linker_options.cmake)
 include(./cmake/clang_tidy.cmake)
 
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

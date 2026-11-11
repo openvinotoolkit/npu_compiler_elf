@@ -225,6 +225,7 @@ const auto MinimalLoadable3720 = makeMinimalLoadable(elf::platform::ArchKind::NP
 const auto MinimalLoadable4000 = makeMinimalLoadable(elf::platform::ArchKind::NPU4000);
 const auto MinimalLoadable5010 = makeMinimalLoadable(elf::platform::ArchKind::NPU5010);
 const auto MinimalLoadable5020 = makeMinimalLoadable(elf::platform::ArchKind::NPU5020);
+const auto MinimalLoadable6010 = makeMinimalLoadable(elf::platform::ArchKind::NPU6010);
 
 TEST(HostParsedInference, MinimalConstructible) {
     auto arch = elf::platform::ArchKind::NPU4000;
@@ -277,6 +278,7 @@ TEST(HostParsedInference, MinimalLoadableEachArchKind) {
             {elf::platform::ArchKind::NPU4000, &MinimalLoadable4000},
             {elf::platform::ArchKind::NPU5010, &MinimalLoadable5010},
             {elf::platform::ArchKind::NPU5020, &MinimalLoadable5020},
+            {elf::platform::ArchKind::NPU6010, &MinimalLoadable6010},
     };
 
     for (const auto& blob : blobs) {

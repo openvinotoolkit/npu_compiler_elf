@@ -30,6 +30,10 @@
 #if defined(CONFIG_TARGET_SOC_5000) || defined(HOST_BUILD)
 #include <hpi_5000.hpp>
 #endif
+// to be removed with E#88139: NPU5000+ share a common HPI implementation
+#if defined(CONFIG_TARGET_SOC_6000) || defined(HOST_BUILD)
+#include <hpi_5000.hpp>  // NOLINT(readability-duplicate-include)
+#endif
 
 // clang-format on
 
@@ -67,6 +71,8 @@ platform::ArchKind archFromDeviceId(uint32_t deviceId) {
         return platform::ArchKind::NPU5010;
     case 0xFD3E:  // Wildcatlake (WCL)
         return platform::ArchKind::NPU5020;
+    case 0xD71D:  // Novalake (NVL) device
+        return platform::ArchKind::NPU6010;
     default:
         VPUX_ELF_LOG(LogLevel::LOG_ERROR, "Unrecognized device ID");
         return platform::ArchKind::UNKNOWN;
